@@ -53,8 +53,8 @@ public:
 #pragma region Логика работы сервера
 private:
 	void init();
-	DWORD WINAPI initialize(LPVOID param);
-	DWORD WINAPI WorkWithClient(LPVOID client_socket);
+	//DWORD WINAPI initialize(LPVOID param);
+	//DWORD WINAPI WorkWithClient(LPVOID client_socket);
 	int Exit();
 
 #pragma endregion
