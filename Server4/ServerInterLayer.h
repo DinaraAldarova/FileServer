@@ -7,7 +7,7 @@
 
 using namespace std;
 
-enum class s {error, working};
+enum class s { error, working };
 
 struct info
 {
@@ -33,7 +33,6 @@ private:
 	sockaddr_in client_addr;
 	u_short port = 665;
 	HOSTENT * hst;
-
 	//Критическая секция для работы с client_info
 	CRITICAL_SECTION cs_info;
 
@@ -41,12 +40,32 @@ private:
 
 #pragma region Get- и set-методы
 private:
-	void quit_client(int ID);
 	int new_ID();
 
 public:
 	ServerInterLayer();
-	s Status();
+	s getStatus();
+	void setStatus(s new_status);
+	list<string> getfiles();
+	void setFiles(string new_file);
+	list<string> getusers();
+	void setUsers(string new_user);
+	list <info> getClient_info();
+	void setClient_info(info new_client_info);
+	string getPuth();
+	void setPuth(string new_puth);
+	char * getBuff();
+	void setBuff(char * new_buff);
+	SOCKET getClient_socket();
+	void setClient_socket(SOCKET new_client_socket);
+	sockaddr_in getClient_addr();
+	void setClient_addr(sockaddr_in new_client_addr);
+	u_short getPort();
+	void setPort(u_short new_port);
+	HOSTENT * getHst();
+	void setHst(HOSTENT * new_hst);
+	CRITICAL_SECTION getCs_info();
+	void setCs_info(CRITICAL_SECTION new_cs_info);
 
 #pragma endregion
 
@@ -55,6 +74,7 @@ private:
 	void init();
 	//DWORD WINAPI initialize(LPVOID param);
 	//DWORD WINAPI WorkWithClient(LPVOID client_socket);
+	void quit_client(int ID);
 	int Exit();
 
 #pragma endregion
