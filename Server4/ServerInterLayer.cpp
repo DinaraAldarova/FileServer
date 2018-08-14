@@ -13,7 +13,8 @@ void ServerInterLayer::init()
 }
 DWORD WINAPI initialize(LPVOID param)
 {
-	InitializeCriticalSection(&cs_info);
+	ServerInterLayer * server = (ServerInterLayer *)param;
+	InitializeCriticalSection(server->getCs_info);
 	if (WSAStartup(0x202, (WSADATA *)&buff[0]))
 	{
 		status = s::error;
@@ -93,11 +94,6 @@ int ServerInterLayer::new_ID()
 	return a;
 }
 
-s ServerInterLayer::Status()
-{
-	return status;
-}
-
 int ServerInterLayer::Exit()
 {
 	return 0;
@@ -123,86 +119,86 @@ s ServerInterLayer::getStatus()
 }
 void ServerInterLayer::setStatus(s new_status)
 {
-
+	this->status = new_status;
 }
-list<string> ServerInterLayer::getfiles()
+list<string> ServerInterLayer::getFiles()
 {
 	return this->files;
 }
 void ServerInterLayer::setFiles(string new_file)
 {
-
+	this->files.push_back(new_file);
 }
-list<string> ServerInterLayer::getusers()
+list<string> ServerInterLayer::getUsers()
 {
 	return this->users;
 }
 void ServerInterLayer::setUsers(string new_user)
 {
-
+	this->users.push_back(new_user);
 }
 list <info> ServerInterLayer::getClient_info()
 {
-
+	return this->client_info;
 }
 void ServerInterLayer::setClient_info(info new_client_info)
 {
-
+	this->client_info.push_back(new_client_info);
 }
 string ServerInterLayer::getPuth()
 {
-
+	return this->puth;
 }
 void ServerInterLayer::setPuth(string new_puth)
 {
-
+	this->puth = new_puth;
 }
 char * ServerInterLayer::getBuff()
 {
-
+	return this->buff;
 }
-void ServerInterLayer::setBuff(char * new_buff)
+/*void ServerInterLayer::setBuff(char * new_buff)
 {
-
-}
+	this->buff = new_buff;
+}*/
 SOCKET ServerInterLayer::getClient_socket()
 {
-
+	return this->client_socket;
 }
 void ServerInterLayer::setClient_socket(SOCKET new_client_socket)
 {
-
+	this->client_socket = new_client_socket;
 }
 sockaddr_in ServerInterLayer::getClient_addr()
 {
-
+	return this->client_addr;
 }
 void ServerInterLayer::setClient_addr(sockaddr_in new_client_addr)
 {
-
+	this->client_addr = new_client_addr;
 }
 u_short ServerInterLayer::getPort()
 {
-
+	return this->port;
 }
 void ServerInterLayer::setPort(u_short new_port)
 {
-
+	this->port = new_port;
 }
 HOSTENT * ServerInterLayer::getHst()
 {
-
+	return this->hst;
 }
 void ServerInterLayer::setHst(HOSTENT * new_hst)
 {
-
+	this->hst = new_hst;
 }
 CRITICAL_SECTION ServerInterLayer::getCs_info()
 {
-
+	return this->cs_info;
 }
 void ServerInterLayer::setCs_info(CRITICAL_SECTION new_cs_info)
 {
-
+	this->cs_info = new_cs_info;
 }
 #pragma endregion
