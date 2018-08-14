@@ -14,10 +14,10 @@ void ServerInterLayer::init()
 DWORD WINAPI initialize(LPVOID param)
 {
 	ServerInterLayer * server = (ServerInterLayer *)param;
-	InitializeCriticalSection(server->getCs_info);
-	if (WSAStartup(0x202, (WSADATA *)&buff[0]))
+	InitializeCriticalSection(&(server->getCs_info()));
+	if (WSAStartup(0x202, (WSADATA *)&(server->getBuff)[0]))
 	{
-		status = s::error;
+		server->setStatus(s::error);
 		return 0;
 	}
 	SOCKET server_socket;
@@ -26,17 +26,17 @@ DWORD WINAPI initialize(LPVOID param)
 	if (server_socket < 0)
 	{
 		WSACleanup();
-		status = s::error;
+		server->setStatus(s::error);
 		return 0;
 	}
 	local_addr.sin_family = AF_INET;
-	local_addr.sin_port = htons(port);
+	local_addr.sin_port = htons(server->getPort());
 	local_addr.sin_addr.s_addr = 0;
 	if (bind(server_socket, (sockaddr *)&local_addr, sizeof(local_addr)))
 	{
 		closesocket(server_socket);
 		WSACleanup();
-		status = s::error;
+		server->setStatus(s::error);
 		return 0;
 	}
 	//Ожидание подключений
@@ -44,10 +44,10 @@ DWORD WINAPI initialize(LPVOID param)
 	{
 		closesocket(server_socket);
 		WSACleanup();
-		status = s::error;
+		server->setStatus(s::error);
 		return 0;
 	}
-	EnterCriticalSection(&cs_info);
+	EnterCriticalSection(&(server->getCs_info()));
 	info host_info;
 	host_info.ID = 0;
 	WSADATA wsaData;
@@ -64,23 +64,23 @@ DWORD WINAPI initialize(LPVOID param)
 	}
 	host_info.name = string(HostName);
 	host_info.IPv4 = inet_ntoa(*((in_addr*)lphost->h_addr_list[0]));
-	LeaveCriticalSection(&cs_info);
+	LeaveCriticalSection(&(server->getCs_info()));
 	WSACleanup(); // освобождаем сокеты, т.е. завершаем использование Ws2_32.dll
 
-	int client_addr_size = sizeof(client_addr);
+	int client_addr_size = sizeof(server->getClient_addr());
 	//Извлечение запросов на подключение из очереди
-	while ((client_socket = accept(server_socket, (sockaddr *)&client_addr, &client_addr_size)))
+	while (server->setClient_socket(accept(server_socket, (sockaddr *)&(server->getClient_addr()), &client_addr_size)))
 	{
 		info client;
-		client.ID = new_ID();
+		client.ID = server->new_ID();
 
-		hst = gethostbyaddr((char *)&client_addr.sin_addr.s_addr, 4, AF_INET);
-		client.name = (hst) ? hst->h_name : "";
-		client.IPv4 = inet_ntoa(client_addr.sin_addr);
-		client.sock = &client_socket;
+		server->setHst(gethostbyaddr((char *)&(server->getClient_addr().sin_addr.s_addr), 4, AF_INET));
+		client.name = (server->getHst()) ? server->getHst()->h_name : "";
+		client.IPv4 = inet_ntoa(server->getClient_addr().sin_addr);
+		client.sock = &(server->getClient_socket());
 		DWORD thID;
-		client_info.push_back(client);
-		client.stream = CreateThread(NULL, NULL, WorkWithClient, &client_info.back(), NULL, &thID);
+		server->setClient_info(client);
+		client.stream = CreateThread(NULL, NULL, WorkWithClient, &server->getClient_info().back(), NULL, &thID);
 	}
 
 	return 0;
@@ -165,9 +165,10 @@ SOCKET ServerInterLayer::getClient_socket()
 {
 	return this->client_socket;
 }
-void ServerInterLayer::setClient_socket(SOCKET new_client_socket)
+SOCKET ServerInterLayer::setClient_socket(SOCKET new_client_socket)
 {
 	this->client_socket = new_client_socket;
+	return new_client_socket;
 }
 sockaddr_in ServerInterLayer::getClient_addr()
 {

@@ -40,9 +40,10 @@ private:
 
 #pragma region Get- и set-методы
 private:
-	int new_ID();
+	
 
 public:
+	int new_ID();
 	ServerInterLayer();
 	s getStatus();
 	void setStatus(s new_status);
@@ -57,7 +58,7 @@ public:
 	char * getBuff();
 	//void setBuff(char * new_buff);
 	SOCKET getClient_socket();
-	void setClient_socket(SOCKET new_client_socket);
+	SOCKET setClient_socket(SOCKET new_client_socket);
 	sockaddr_in getClient_addr();
 	void setClient_addr(sockaddr_in new_client_addr);
 	u_short getPort();
