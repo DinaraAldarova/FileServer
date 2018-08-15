@@ -2,6 +2,7 @@
 #pragma comment( lib, "ws2_32.lib" )
 ServerInterLayer::ServerInterLayer()
 {
+	InitializeCriticalSection(&cs_info);
 	init();
 }
 DWORD WINAPI initialize(LPVOID param);
@@ -14,7 +15,6 @@ void ServerInterLayer::init()
 DWORD WINAPI initialize(LPVOID param)
 {
 	ServerInterLayer * server = (ServerInterLayer *)param;
-	InitializeCriticalSection(&(server->getCs_info()));
 	if (WSAStartup(0x202, (WSADATA *)server->getBuff()))
 	{
 		server->setStatus(s::error);
