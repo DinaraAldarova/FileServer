@@ -15,7 +15,7 @@ DWORD WINAPI initialize(LPVOID param)
 {
 	ServerInterLayer * server = (ServerInterLayer *)param;
 	InitializeCriticalSection(&(server->getCs_info()));
-	if (WSAStartup(0x202, (WSADATA *)&(server->getBuff)[0]))
+	if (WSAStartup(0x202, (WSADATA *)server->getBuff()))
 	{
 		server->setStatus(s::error);
 		return 0;
@@ -74,10 +74,10 @@ DWORD WINAPI initialize(LPVOID param)
 		info client;
 		client.ID = server->new_ID();
 
-		server->setHst(gethostbyaddr((char *)&(server->getClient_addr().sin_addr.s_addr), 4, AF_INET));
+		server->setHst(gethostbyaddr((char *)(server->getClient_addr().sin_addr.s_addr), 4, AF_INET));
 		client.name = (server->getHst()) ? server->getHst()->h_name : "";
 		client.IPv4 = inet_ntoa(server->getClient_addr().sin_addr);
-		client.sock = &(server->getClient_socket());
+		client.sock = server->getClient_socket();
 		DWORD thID;
 		server->setClient_info(client);
 		client.stream = CreateThread(NULL, NULL, WorkWithClient, &server->getClient_info().back(), NULL, &thID);

@@ -15,7 +15,7 @@ struct info
 	string name;
 	string IPv4;
 	HANDLE stream; //где идет работа с клиентом, обработка входа/выхода
-	SOCKET * sock;
+	SOCKET sock;
 	HANDLE mailslot;
 	string mpath;
 };
