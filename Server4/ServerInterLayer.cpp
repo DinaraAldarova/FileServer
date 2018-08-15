@@ -10,12 +10,12 @@ DWORD WINAPI WorkWithClient(LPVOID param);
 void ServerInterLayer::init()
 {
 	DWORD thID;
-	CreateThread(NULL, NULL, initialize, NULL, NULL, &thID);
+	CreateThread(NULL, NULL, initialize, this, NULL, &thID);
 }
 DWORD WINAPI initialize(LPVOID param)
 {
 	ServerInterLayer * server = (ServerInterLayer *)param;
-	if (WSAStartup(0x202, (WSADATA *)server->getBuff()))
+	if (WSAStartup(0x202, (WSADATA *)&(server->buff[0])))
 	{
 		server->setStatus(s::error);
 		return 0;
@@ -66,6 +66,7 @@ DWORD WINAPI initialize(LPVOID param)
 	host_info.IPv4 = inet_ntoa(*((in_addr*)lphost->h_addr_list[0]));
 	LeaveCriticalSection(&(server->getCs_info()));
 	WSACleanup(); // освобождаем сокеты, т.е. завершаем использование Ws2_32.dll
+	server->setStatus(s::working);
 
 	int client_addr_size = sizeof(server->getClient_addr());
 	//Извлечение запросов на подключение из очереди
@@ -80,7 +81,7 @@ DWORD WINAPI initialize(LPVOID param)
 		client.sock = server->getClient_socket();
 		DWORD thID;
 		server->setClient_info(client);
-		client.stream = CreateThread(NULL, NULL, WorkWithClient, &server->getClient_info().back(), NULL, &thID);
+		client.stream = CreateThread(NULL, NULL, WorkWithClient, &server->client_info.back(), NULL, &thID);
 	}
 
 	return 0;
@@ -88,8 +89,12 @@ DWORD WINAPI initialize(LPVOID param)
 
 int ServerInterLayer::new_ID()
 {
+	int a;
 	EnterCriticalSection(&cs_info);
-	int a = client_info.back().ID + 1;
+	if (client_info.empty())
+		a = 1;
+	else
+		a = client_info.back().ID + 1;
 	LeaveCriticalSection(&cs_info);
 	return a;
 }
@@ -153,10 +158,10 @@ void ServerInterLayer::setPuth(string new_puth)
 {
 	this->puth = new_puth;
 }
-char * ServerInterLayer::getBuff()
+/*char * ServerInterLayer::getBuff()
 {
 	return this->buff;
-}
+}*/
 /*void ServerInterLayer::setBuff(char * new_buff)
 {
 	this->buff = new_buff;

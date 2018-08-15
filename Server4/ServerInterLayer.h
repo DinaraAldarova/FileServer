@@ -26,9 +26,8 @@ private:
 	s status = s::error;
 	list<string> files;
 	list<string> users = {};
-	list <info> client_info = {};
+
 	string puth = "D:\\Client";
-	char buff[4096] = "";
 	SOCKET client_socket;
 	sockaddr_in client_addr;
 	u_short port = 665;
@@ -36,11 +35,14 @@ private:
 	//Критическая секция для работы с client_info
 	CRITICAL_SECTION cs_info;
 
+public:
+	char buff[4096] = "";
+	list <info> client_info = {};
 #pragma endregion
 
 #pragma region Get- и set-методы
 private:
-	
+
 
 public:
 	int new_ID();
@@ -55,7 +57,7 @@ public:
 	void setClient_info(info new_client_info);
 	string getPuth();
 	void setPuth(string new_puth);
-	char * getBuff();
+	//char * getBuff();
 	//void setBuff(char * new_buff);
 	SOCKET getClient_socket();
 	SOCKET setClient_socket(SOCKET new_client_socket);
@@ -72,11 +74,13 @@ public:
 
 #pragma region Логика работы сервера
 private:
-	void init();
 	//DWORD WINAPI initialize(LPVOID param);
 	//DWORD WINAPI WorkWithClient(LPVOID client_socket);
 	void quit_client(int ID);
 	int Exit();
+
+public:
+	void init();
 
 #pragma endregion
 };

@@ -1,4 +1,5 @@
 #pragma once
+#include <Windows.h>
 #include "ServerInterLayer.h"
 namespace Server4 {
 
@@ -38,22 +39,31 @@ namespace Server4 {
 
 	protected:
 
-	private: System::Windows::Forms::Label^  label_Addres;
+
 	private: System::Windows::Forms::ListView^  listView_Users;
 	private: System::Windows::Forms::ListView^  listView_Files;
 
 
 
 
-	private: System::Windows::Forms::Label^  label3;
-	private: System::Windows::Forms::Label^  label4;
+
+
 
 
 	private: System::Windows::Forms::Label^  label_IP;
-	private: System::Windows::Forms::Label^  label_Addres2;
+	private: System::Windows::Forms::Label^  label_IP2;
+
 
 
 	private: System::Windows::Forms::ToolTip^  toolTip1;
+
+	private: System::Windows::Forms::TabControl^  tabControl1;
+	private: System::Windows::Forms::TabPage^  tabPage1;
+	private: System::Windows::Forms::TabPage^  tabPage2;
+	private: System::Windows::Forms::TabPage^  tabPage3;
+	private: System::Windows::Forms::TextBox^  textBox1;
+	private: System::Windows::Forms::GroupBox^  groupBoxIP;
+
 	private: System::ComponentModel::IContainer^  components;
 
 	protected:
@@ -74,14 +84,22 @@ namespace Server4 {
 			this->components = (gcnew System::ComponentModel::Container());
 			System::ComponentModel::ComponentResourceManager^  resources = (gcnew System::ComponentModel::ComponentResourceManager(ServerForm::typeid));
 			this->imageListPlay = (gcnew System::Windows::Forms::ImageList(this->components));
-			this->label_Addres = (gcnew System::Windows::Forms::Label());
 			this->listView_Users = (gcnew System::Windows::Forms::ListView());
 			this->listView_Files = (gcnew System::Windows::Forms::ListView());
-			this->label3 = (gcnew System::Windows::Forms::Label());
-			this->label4 = (gcnew System::Windows::Forms::Label());
 			this->label_IP = (gcnew System::Windows::Forms::Label());
-			this->label_Addres2 = (gcnew System::Windows::Forms::Label());
+			this->label_IP2 = (gcnew System::Windows::Forms::Label());
 			this->toolTip1 = (gcnew System::Windows::Forms::ToolTip(this->components));
+			this->tabControl1 = (gcnew System::Windows::Forms::TabControl());
+			this->tabPage1 = (gcnew System::Windows::Forms::TabPage());
+			this->tabPage2 = (gcnew System::Windows::Forms::TabPage());
+			this->tabPage3 = (gcnew System::Windows::Forms::TabPage());
+			this->textBox1 = (gcnew System::Windows::Forms::TextBox());
+			this->groupBoxIP = (gcnew System::Windows::Forms::GroupBox());
+			this->tabControl1->SuspendLayout();
+			this->tabPage1->SuspendLayout();
+			this->tabPage2->SuspendLayout();
+			this->tabPage3->SuspendLayout();
+			this->groupBoxIP->SuspendLayout();
 			this->SuspendLayout();
 			// 
 			// imageListPlay
@@ -91,23 +109,15 @@ namespace Server4 {
 			this->imageListPlay->Images->SetKeyName(0, L"play");
 			this->imageListPlay->Images->SetKeyName(1, L"stop");
 			// 
-			// label_Addres
-			// 
-			this->label_Addres->AutoSize = true;
-			this->label_Addres->Location = System::Drawing::Point(12, 9);
-			this->label_Addres->Name = L"label_Addres";
-			this->label_Addres->Size = System::Drawing::Size(98, 13);
-			this->label_Addres->TabIndex = 14;
-			this->label_Addres->Text = L"IP-адрес сервера:";
-			// 
 			// listView_Users
 			// 
+			this->listView_Users->Dock = System::Windows::Forms::DockStyle::Fill;
 			this->listView_Users->LabelWrap = false;
-			this->listView_Users->Location = System::Drawing::Point(12, 38);
+			this->listView_Users->Location = System::Drawing::Point(3, 3);
 			this->listView_Users->MultiSelect = false;
 			this->listView_Users->Name = L"listView_Users";
 			this->listView_Users->ShowGroups = false;
-			this->listView_Users->Size = System::Drawing::Size(166, 211);
+			this->listView_Users->Size = System::Drawing::Size(323, 167);
 			this->listView_Users->Sorting = System::Windows::Forms::SortOrder::Ascending;
 			this->listView_Users->TabIndex = 17;
 			this->listView_Users->UseCompatibleStateImageBehavior = false;
@@ -115,80 +125,140 @@ namespace Server4 {
 			// 
 			// listView_Files
 			// 
+			this->listView_Files->Dock = System::Windows::Forms::DockStyle::Fill;
 			this->listView_Files->LabelWrap = false;
-			this->listView_Files->Location = System::Drawing::Point(187, 38);
+			this->listView_Files->Location = System::Drawing::Point(3, 3);
 			this->listView_Files->MultiSelect = false;
 			this->listView_Files->Name = L"listView_Files";
 			this->listView_Files->ShowGroups = false;
-			this->listView_Files->Size = System::Drawing::Size(165, 211);
+			this->listView_Files->Size = System::Drawing::Size(323, 167);
 			this->listView_Files->Sorting = System::Windows::Forms::SortOrder::Ascending;
 			this->listView_Files->TabIndex = 18;
 			this->listView_Files->UseCompatibleStateImageBehavior = false;
 			this->listView_Files->View = System::Windows::Forms::View::List;
-			// 
-			// label3
-			// 
-			this->label3->AutoSize = true;
-			this->label3->Location = System::Drawing::Point(12, 22);
-			this->label3->Name = L"label3";
-			this->label3->Size = System::Drawing::Size(127, 13);
-			this->label3->TabIndex = 19;
-			this->label3->Text = L"Список пользователей:";
-			// 
-			// label4
-			// 
-			this->label4->AutoSize = true;
-			this->label4->Location = System::Drawing::Point(184, 22);
-			this->label4->Name = L"label4";
-			this->label4->Size = System::Drawing::Size(88, 13);
-			this->label4->TabIndex = 20;
-			this->label4->Text = L"Список файлов:";
 			// 
 			// label_IP
 			// 
 			this->label_IP->AutoSize = true;
 			this->label_IP->Font = (gcnew System::Drawing::Font(L"Microsoft Sans Serif", 8.25F, System::Drawing::FontStyle::Underline, System::Drawing::GraphicsUnit::Point,
 				static_cast<System::Byte>(204)));
-			this->label_IP->Location = System::Drawing::Point(116, 9);
+			this->label_IP->Location = System::Drawing::Point(6, 16);
 			this->label_IP->Name = L"label_IP";
 			this->label_IP->Size = System::Drawing::Size(70, 13);
 			this->label_IP->TabIndex = 21;
 			this->label_IP->Text = L"192.168.56.1";
 			// 
-			// label_Addres2
+			// label_IP2
 			// 
-			this->label_Addres2->AutoSize = true;
-			this->label_Addres2->Location = System::Drawing::Point(270, 9);
-			this->label_Addres2->Name = L"label_Addres2";
-			this->label_Addres2->Size = System::Drawing::Size(79, 13);
-			this->label_Addres2->TabIndex = 22;
-			this->label_Addres2->Text = L"(или 127.0.0.1)";
-			this->toolTip1->SetToolTip(this->label_Addres2, L"Только для клиента, запущенного на этом компьютере!");
+			this->label_IP2->Anchor = static_cast<System::Windows::Forms::AnchorStyles>((System::Windows::Forms::AnchorStyles::Top | System::Windows::Forms::AnchorStyles::Right));
+			this->label_IP2->AutoSize = true;
+			this->label_IP2->Location = System::Drawing::Point(252, 16);
+			this->label_IP2->Name = L"label_IP2";
+			this->label_IP2->Size = System::Drawing::Size(79, 13);
+			this->label_IP2->TabIndex = 22;
+			this->label_IP2->Text = L"(или 127.0.0.1)";
+			this->toolTip1->SetToolTip(this->label_IP2, L"Только для клиента, запущенного на этом компьютере!");
+			// 
+			// tabControl1
+			// 
+			this->tabControl1->Anchor = static_cast<System::Windows::Forms::AnchorStyles>((((System::Windows::Forms::AnchorStyles::Top | System::Windows::Forms::AnchorStyles::Bottom)
+				| System::Windows::Forms::AnchorStyles::Left)
+				| System::Windows::Forms::AnchorStyles::Right));
+			this->tabControl1->Controls->Add(this->tabPage1);
+			this->tabControl1->Controls->Add(this->tabPage2);
+			this->tabControl1->Controls->Add(this->tabPage3);
+			this->tabControl1->Location = System::Drawing::Point(12, 50);
+			this->tabControl1->Name = L"tabControl1";
+			this->tabControl1->SelectedIndex = 0;
+			this->tabControl1->Size = System::Drawing::Size(337, 199);
+			this->tabControl1->TabIndex = 24;
+			// 
+			// tabPage1
+			// 
+			this->tabPage1->Controls->Add(this->listView_Users);
+			this->tabPage1->Location = System::Drawing::Point(4, 22);
+			this->tabPage1->Name = L"tabPage1";
+			this->tabPage1->Padding = System::Windows::Forms::Padding(3);
+			this->tabPage1->Size = System::Drawing::Size(329, 173);
+			this->tabPage1->TabIndex = 0;
+			this->tabPage1->Text = L"Пользователи";
+			this->tabPage1->UseVisualStyleBackColor = true;
+			// 
+			// tabPage2
+			// 
+			this->tabPage2->Controls->Add(this->listView_Files);
+			this->tabPage2->Location = System::Drawing::Point(4, 22);
+			this->tabPage2->Name = L"tabPage2";
+			this->tabPage2->Padding = System::Windows::Forms::Padding(3);
+			this->tabPage2->Size = System::Drawing::Size(329, 173);
+			this->tabPage2->TabIndex = 1;
+			this->tabPage2->Text = L"Файлы";
+			this->tabPage2->UseVisualStyleBackColor = true;
+			// 
+			// tabPage3
+			// 
+			this->tabPage3->Controls->Add(this->textBox1);
+			this->tabPage3->Location = System::Drawing::Point(4, 22);
+			this->tabPage3->Name = L"tabPage3";
+			this->tabPage3->Padding = System::Windows::Forms::Padding(3);
+			this->tabPage3->Size = System::Drawing::Size(329, 173);
+			this->tabPage3->TabIndex = 2;
+			this->tabPage3->Text = L"Сообщения";
+			this->tabPage3->UseVisualStyleBackColor = true;
+			// 
+			// textBox1
+			// 
+			this->textBox1->BackColor = System::Drawing::SystemColors::Window;
+			this->textBox1->Dock = System::Windows::Forms::DockStyle::Fill;
+			this->textBox1->Location = System::Drawing::Point(3, 3);
+			this->textBox1->Multiline = true;
+			this->textBox1->Name = L"textBox1";
+			this->textBox1->ReadOnly = true;
+			this->textBox1->Size = System::Drawing::Size(323, 167);
+			this->textBox1->TabIndex = 0;
+			// 
+			// groupBoxIP
+			// 
+			this->groupBoxIP->Anchor = static_cast<System::Windows::Forms::AnchorStyles>(((System::Windows::Forms::AnchorStyles::Top | System::Windows::Forms::AnchorStyles::Left)
+				| System::Windows::Forms::AnchorStyles::Right));
+			this->groupBoxIP->Controls->Add(this->label_IP);
+			this->groupBoxIP->Controls->Add(this->label_IP2);
+			this->groupBoxIP->Location = System::Drawing::Point(12, 12);
+			this->groupBoxIP->Name = L"groupBoxIP";
+			this->groupBoxIP->Size = System::Drawing::Size(337, 32);
+			this->groupBoxIP->TabIndex = 25;
+			this->groupBoxIP->TabStop = false;
+			this->groupBoxIP->Text = L"IP-адрес сервера";
 			// 
 			// ServerForm
 			// 
 			this->AutoScaleDimensions = System::Drawing::SizeF(6, 13);
 			this->AutoScaleMode = System::Windows::Forms::AutoScaleMode::Font;
 			this->ClientSize = System::Drawing::Size(361, 261);
-			this->Controls->Add(this->label_Addres2);
-			this->Controls->Add(this->label_IP);
-			this->Controls->Add(this->label4);
-			this->Controls->Add(this->label3);
-			this->Controls->Add(this->listView_Files);
-			this->Controls->Add(this->listView_Users);
-			this->Controls->Add(this->label_Addres);
+			this->Controls->Add(this->groupBoxIP);
+			this->Controls->Add(this->tabControl1);
+			this->MinimumSize = System::Drawing::Size(300, 200);
 			this->Name = L"ServerForm";
 			this->Text = L"ServerForm";
 			this->Load += gcnew System::EventHandler(this, &ServerForm::ServerForm_Load);
+			this->tabControl1->ResumeLayout(false);
+			this->tabPage1->ResumeLayout(false);
+			this->tabPage2->ResumeLayout(false);
+			this->tabPage3->ResumeLayout(false);
+			this->tabPage3->PerformLayout();
+			this->groupBoxIP->ResumeLayout(false);
+			this->groupBoxIP->PerformLayout();
 			this->ResumeLayout(false);
-			this->PerformLayout();
 
 		}
 #pragma endregion
 
 	private: System::Void ServerForm_Load(System::Object^  sender, System::EventArgs^  e)
 	{
-
+		while (server.getStatus() != s::working)
+		{
+			Sleep(100);
+		}
 	}
 	};
 }
