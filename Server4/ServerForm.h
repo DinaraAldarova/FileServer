@@ -260,7 +260,7 @@ namespace Server4 {
 		{
 			Sleep(100);
 		}
-		//label_IP->Text = server.getClient_info().front().IPv4;
+		label_IP->Text = gcnew String(server.getClient_info().front().IPv4.c_str());
 	}
 	private: void update_info()
 	{

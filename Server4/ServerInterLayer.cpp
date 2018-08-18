@@ -21,6 +21,7 @@ DWORD WINAPI initialize(LPVOID param)
 		server->setStatus(s::error);
 		return 0;
 	}
+	//Скопировать этот код и сделать функцию создания сокета
 	SOCKET server_socket;
 	sockaddr_in local_addr;
 	server_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -135,25 +136,13 @@ void ServerInterLayer::setStatus(s new_status)
 {
 	this->status = new_status;
 }
-list<string> ServerInterLayer::getFiles()
-{
-	return this->files;
-}
 void ServerInterLayer::setFiles(string new_file)
 {
 	this->files.push_back(new_file);
 }
-list<string> ServerInterLayer::getUsers()
-{
-	return this->users;
-}
 void ServerInterLayer::setUsers(string new_user)
 {
 	this->users.push_back(new_user);
-}
-list <info> ServerInterLayer::getClient_info()
-{
-	return this->client_info;
 }
 void ServerInterLayer::setClient_info(info new_client_info)
 {
@@ -168,36 +157,8 @@ SOCKET ServerInterLayer::setClient_socket(SOCKET new_client_socket)
 	this->client_socket = new_client_socket;
 	return new_client_socket;
 }
-sockaddr_in ServerInterLayer::getClient_addr()
-{
-	return this->client_addr;
-}
-void ServerInterLayer::setClient_addr(sockaddr_in new_client_addr)
-{
-	this->client_addr = new_client_addr;
-}
 u_short ServerInterLayer::getPort()
 {
 	return this->port;
-}
-void ServerInterLayer::setPort(u_short new_port)
-{
-	this->port = new_port;
-}
-HOSTENT * ServerInterLayer::getHst()
-{
-	return this->hst;
-}
-void ServerInterLayer::setHst(HOSTENT * new_hst)
-{
-	this->hst = new_hst;
-}
-CRITICAL_SECTION ServerInterLayer::getCs_info()
-{
-	return this->cs_info;
-}
-void ServerInterLayer::setCs_info(CRITICAL_SECTION new_cs_info)
-{
-	this->cs_info = new_cs_info;
 }
 #pragma endregion

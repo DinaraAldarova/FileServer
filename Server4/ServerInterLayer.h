@@ -25,21 +25,23 @@ class ServerInterLayer
 #pragma region Атрибуты
 private:
 	s status = s::error;
-	list<string> files;
-	list<string> users = {};
-
-	SOCKET client_socket;
-	sockaddr_in client_addr;
+	SOCKET client_socket;//создавать новый сокет
 	u_short port = 665;
-	HOSTENT * hst;
-	//Критическая секция для работы с client_info
-	CRITICAL_SECTION cs_info;
+	
 
 public:
 	char buff[4096] = "";
+	sockaddr_in client_addr;
+	HOSTENT * hst;
 	list <info> client_info = {};
-	bool isOutDated_Users = true;
-	bool isOutDated_Files = true;
+	list<string> files;
+	list<string> users = {};
+	bool isOutDated_Users = false;
+	bool isOutDated_Files = false;
+	//Критическая секция для работы с client_info
+	CRITICAL_SECTION cs_info;
+	CRITICAL_SECTION cs_files;
+	CRITICAL_SECTION cs_users;
 #pragma endregion
 
 #pragma region Get- и set-методы
@@ -51,22 +53,12 @@ public:
 	ServerInterLayer();
 	s getStatus();
 	void setStatus(s new_status);
-	list<string> getFiles();
 	void setFiles(string new_file);
-	list<string> getUsers();
 	void setUsers(string new_user);
-	list <info> getClient_info();
 	void setClient_info(info new_client_info);
 	SOCKET getClient_socket();
 	SOCKET setClient_socket(SOCKET new_client_socket);
-	sockaddr_in getClient_addr();
-	void setClient_addr(sockaddr_in new_client_addr);
 	u_short getPort();
-	void setPort(u_short new_port);
-	HOSTENT * getHst();
-	void setHst(HOSTENT * new_hst);
-	CRITICAL_SECTION getCs_info();
-	void setCs_info(CRITICAL_SECTION new_cs_info);
 
 #pragma endregion
 
