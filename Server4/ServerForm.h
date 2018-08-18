@@ -61,7 +61,8 @@ namespace Server4 {
 	private: System::Windows::Forms::TabPage^  tabPage1;
 	private: System::Windows::Forms::TabPage^  tabPage2;
 	private: System::Windows::Forms::TabPage^  tabPage3;
-	private: System::Windows::Forms::TextBox^  textBox1;
+	private: System::Windows::Forms::TextBox^  textBox_Log;
+
 	private: System::Windows::Forms::GroupBox^  groupBoxIP;
 
 	private: System::ComponentModel::IContainer^  components;
@@ -93,7 +94,7 @@ namespace Server4 {
 			this->tabPage1 = (gcnew System::Windows::Forms::TabPage());
 			this->tabPage2 = (gcnew System::Windows::Forms::TabPage());
 			this->tabPage3 = (gcnew System::Windows::Forms::TabPage());
-			this->textBox1 = (gcnew System::Windows::Forms::TextBox());
+			this->textBox_Log = (gcnew System::Windows::Forms::TextBox());
 			this->groupBoxIP = (gcnew System::Windows::Forms::GroupBox());
 			this->tabControl1->SuspendLayout();
 			this->tabPage1->SuspendLayout();
@@ -144,9 +145,9 @@ namespace Server4 {
 				static_cast<System::Byte>(204)));
 			this->label_IP->Location = System::Drawing::Point(6, 16);
 			this->label_IP->Name = L"label_IP";
-			this->label_IP->Size = System::Drawing::Size(70, 13);
+			this->label_IP->Size = System::Drawing::Size(52, 13);
 			this->label_IP->TabIndex = 21;
-			this->label_IP->Text = L"192.168.56.1";
+			this->label_IP->Text = L"127.0.0.1";
 			// 
 			// label_IP2
 			// 
@@ -197,7 +198,7 @@ namespace Server4 {
 			// 
 			// tabPage3
 			// 
-			this->tabPage3->Controls->Add(this->textBox1);
+			this->tabPage3->Controls->Add(this->textBox_Log);
 			this->tabPage3->Location = System::Drawing::Point(4, 22);
 			this->tabPage3->Name = L"tabPage3";
 			this->tabPage3->Padding = System::Windows::Forms::Padding(3);
@@ -206,16 +207,16 @@ namespace Server4 {
 			this->tabPage3->Text = L"—ообщени€";
 			this->tabPage3->UseVisualStyleBackColor = true;
 			// 
-			// textBox1
+			// textBox_Log
 			// 
-			this->textBox1->BackColor = System::Drawing::SystemColors::Window;
-			this->textBox1->Dock = System::Windows::Forms::DockStyle::Fill;
-			this->textBox1->Location = System::Drawing::Point(3, 3);
-			this->textBox1->Multiline = true;
-			this->textBox1->Name = L"textBox1";
-			this->textBox1->ReadOnly = true;
-			this->textBox1->Size = System::Drawing::Size(323, 167);
-			this->textBox1->TabIndex = 0;
+			this->textBox_Log->BackColor = System::Drawing::SystemColors::Window;
+			this->textBox_Log->Dock = System::Windows::Forms::DockStyle::Fill;
+			this->textBox_Log->Location = System::Drawing::Point(3, 3);
+			this->textBox_Log->Multiline = true;
+			this->textBox_Log->Name = L"textBox_Log";
+			this->textBox_Log->ReadOnly = true;
+			this->textBox_Log->Size = System::Drawing::Size(323, 167);
+			this->textBox_Log->TabIndex = 0;
 			// 
 			// groupBoxIP
 			// 
@@ -259,6 +260,37 @@ namespace Server4 {
 		{
 			Sleep(100);
 		}
+		//label_IP->Text = server.getClient_info().front().IPv4;
+	}
+	private: void update_info()
+	{
+		/* –»“»„≈— јя —≈ ÷»я*/
+		if (server.isOutDated_Files)
+		{
+			//обновление списка доступных дл€ скачивани€ файлов
+			listView_Files->Items->Clear();
+			ListViewItem ^ file;
+			for each (string file_name in server.getFiles())
+			{
+				file = gcnew ListViewItem(gcnew String(file_name.c_str()));
+				listView_Users->Items->Add(file);
+			}
+			server.isOutDated_Files = false;
+		}
+		/* –»“»„≈— јя —≈ ÷»я*/
+		if (server.isOutDated_Users)
+		{
+			//обновление списка доступных пользователей
+			listView_Users->Items->Clear();
+			ListViewItem ^ user;
+			for each (string user_name in server.getUsers())
+			{
+				user = gcnew ListViewItem(gcnew String(user_name.c_str()));
+				listView_Users->Items->Add(user);
+			}
+			server.isOutDated_Users = false;
+		}
+
 	}
 	};
 }

@@ -17,6 +17,7 @@ struct info
 	HANDLE stream; //где идет работа с клиентом, обработка входа/выхода
 	SOCKET sock;
 	HANDLE mailslot;
+	// ак € буду использовать путь?
 	string mpath;
 };
 class ServerInterLayer
@@ -27,7 +28,6 @@ private:
 	list<string> files;
 	list<string> users = {};
 
-	string puth = "D:\\Client";
 	SOCKET client_socket;
 	sockaddr_in client_addr;
 	u_short port = 665;
@@ -38,6 +38,8 @@ private:
 public:
 	char buff[4096] = "";
 	list <info> client_info = {};
+	bool isOutDated_Users = true;
+	bool isOutDated_Files = true;
 #pragma endregion
 
 #pragma region Get- и set-методы
@@ -55,10 +57,6 @@ public:
 	void setUsers(string new_user);
 	list <info> getClient_info();
 	void setClient_info(info new_client_info);
-	string getPuth();
-	void setPuth(string new_puth);
-	//char * getBuff();
-	//void setBuff(char * new_buff);
 	SOCKET getClient_socket();
 	SOCKET setClient_socket(SOCKET new_client_socket);
 	sockaddr_in getClient_addr();

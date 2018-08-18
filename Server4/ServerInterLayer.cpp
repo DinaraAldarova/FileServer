@@ -1,5 +1,6 @@
 #include "ServerInterLayer.h"
 #pragma comment( lib, "ws2_32.lib" )
+ServerInterLayer * server;
 ServerInterLayer::ServerInterLayer()
 {
 	InitializeCriticalSection(&cs_info);
@@ -9,12 +10,12 @@ DWORD WINAPI initialize(LPVOID param);
 DWORD WINAPI WorkWithClient(LPVOID param);
 void ServerInterLayer::init()
 {
+	server = this;
 	DWORD thID;
-	CreateThread(NULL, NULL, initialize, this, NULL, &thID);
+	CreateThread(NULL, NULL, initialize, NULL, NULL, &thID);
 }
 DWORD WINAPI initialize(LPVOID param)
 {
-	ServerInterLayer * server = (ServerInterLayer *)param;
 	if (WSAStartup(0x202, (WSADATA *)&(server->buff[0])))
 	{
 		server->setStatus(s::error);
@@ -47,7 +48,6 @@ DWORD WINAPI initialize(LPVOID param)
 		server->setStatus(s::error);
 		return 0;
 	}
-	EnterCriticalSection(&(server->getCs_info()));
 	info host_info;
 	host_info.ID = 0;
 	WSADATA wsaData;
@@ -64,7 +64,9 @@ DWORD WINAPI initialize(LPVOID param)
 	}
 	host_info.name = string(HostName);
 	host_info.IPv4 = inet_ntoa(*((in_addr*)lphost->h_addr_list[0]));
-	LeaveCriticalSection(&(server->getCs_info()));
+	host_info.stream = GetCurrentThread();
+	host_info.mpath = "D:\\Client";
+	server->client_info.push_back(host_info);
 	WSACleanup(); // освобождаем сокеты, т.е. завершаем использование Ws2_32.dll
 	server->setStatus(s::working);
 
@@ -79,9 +81,14 @@ DWORD WINAPI initialize(LPVOID param)
 		client.name = (server->getHst()) ? server->getHst()->h_name : "";
 		client.IPv4 = inet_ntoa(server->getClient_addr().sin_addr);
 		client.sock = server->getClient_socket();
-		DWORD thID;
+		client.mpath = host_info.mpath;
+		
+		EnterCriticalSection(&(server->getCs_info()));
 		server->setClient_info(client);
-		client.stream = CreateThread(NULL, NULL, WorkWithClient, &server->client_info.back(), NULL, &thID);
+		LeaveCriticalSection(&(server->getCs_info()));
+
+		DWORD thID;
+		CreateThread(NULL, NULL, WorkWithClient, &(server->client_info.back()), NULL, &thID);
 	}
 
 	return 0;
@@ -91,16 +98,14 @@ int ServerInterLayer::new_ID()
 {
 	int a;
 	EnterCriticalSection(&cs_info);
-	if (client_info.empty())
-		a = 1;
-	else
-		a = client_info.back().ID + 1;
+	a = client_info.back().ID + 1;
 	LeaveCriticalSection(&cs_info);
 	return a;
 }
 
 int ServerInterLayer::Exit()
 {
+	/**/
 	return 0;
 }
 
@@ -108,13 +113,17 @@ DWORD WINAPI WorkWithClient(LPVOID param)
 {
 	info* c_client = (info*)param;
 	info client = *c_client;
+	client.stream = GetCurrentThread();
+	//Добавить mailslot
+
+
 
 	return 0;
 }
 
 void ServerInterLayer::quit_client(int ID)
 {
-
+	/**/
 }
 
 #pragma region Get- и set-методы
@@ -150,22 +159,6 @@ void ServerInterLayer::setClient_info(info new_client_info)
 {
 	this->client_info.push_back(new_client_info);
 }
-string ServerInterLayer::getPuth()
-{
-	return this->puth;
-}
-void ServerInterLayer::setPuth(string new_puth)
-{
-	this->puth = new_puth;
-}
-/*char * ServerInterLayer::getBuff()
-{
-	return this->buff;
-}*/
-/*void ServerInterLayer::setBuff(char * new_buff)
-{
-	this->buff = new_buff;
-}*/
 SOCKET ServerInterLayer::getClient_socket()
 {
 	return this->client_socket;
