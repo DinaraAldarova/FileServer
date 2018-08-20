@@ -246,12 +246,8 @@ namespace Server4 {
 			//обновление списка доступных для скачивания файлов
 			listView_Files->Items->Clear();
 			ListViewItem ^ file;
-
-			while (!server.Log_isEmpty())
-			{
-				textBox_Log->Text += gcnew String(server.popLog().c_str());
-			}
-			for each (string file_name in server.files)
+			list<string> files = server.getFiles();
+			for each (string file_name in files)
 			{
 				file = gcnew ListViewItem(gcnew String(file_name.c_str()));
 				listView_Users->Items->Add(file);
@@ -264,7 +260,8 @@ namespace Server4 {
 			//обновление списка доступных пользователей
 			listView_Users->Items->Clear();
 			ListViewItem ^ user;
-			for each (string user_name in server.users)
+			list<string> users = server.getUsers();
+			for each (string user_name in users)
 			{
 				user = gcnew ListViewItem(gcnew String(user_name.c_str()));
 				listView_Users->Items->Add(user);

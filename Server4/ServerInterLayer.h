@@ -56,9 +56,9 @@ public:
 	ServerInterLayer();
 	s getStatus();
 	void setStatus(s new_status);
-	string getFile();
+	list<string> getFiles();
 	void setFile(string new_file);
-	string getUser();
+	list<string> getUsers();
 	void setUser(string new_user);
 	void setClient_info(info new_client_info);
 	SOCKET getClient_socket();

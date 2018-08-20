@@ -140,13 +140,12 @@ void ServerInterLayer::setStatus(s new_status)
 {
 	this->status = new_status;
 }
-string ServerInterLayer::getFile()
+list<string> ServerInterLayer::getFiles()
 {
 	WaitForSingleObject(hMutex_Files, INFINITE);
-	string s = this->files.front();
-	this->files.pop_front();
+	list<string> res = this->files;
 	ReleaseMutex(hMutex_Files);
-	return s;
+	return res;
 }
 void ServerInterLayer::setFile(string new_file)
 {
@@ -154,13 +153,12 @@ void ServerInterLayer::setFile(string new_file)
 	this->files.push_back(new_file);
 	ReleaseMutex(hMutex_Files);
 }
-string ServerInterLayer::getUser()
+list<string> ServerInterLayer::getUsers()
 {
 	WaitForSingleObject(hMutex_Users, INFINITE);
-	string s = this->users.front();
-	this->users.pop_front();
+	list<string> res = this->users;
 	ReleaseMutex(hMutex_Users);
-	return s;
+	return res;
 }
 void ServerInterLayer::setUser(string new_user)
 {
