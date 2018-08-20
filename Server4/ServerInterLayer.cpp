@@ -1,9 +1,13 @@
+#include <Windows.h>
 #include "ServerInterLayer.h"
 #pragma comment( lib, "ws2_32.lib" )
 ServerInterLayer * server;
 ServerInterLayer::ServerInterLayer()
 {
 	InitializeCriticalSection(&cs_info);
+	hMutex_Log = CreateMutex(NULL, false, NULL);
+	hMutex_Users = CreateMutex(NULL, false, NULL);
+	hMutex_Files = CreateMutex(NULL, false, NULL);
 	init();
 }
 DWORD WINAPI initialize(LPVOID param);
@@ -71,22 +75,22 @@ DWORD WINAPI initialize(LPVOID param)
 	WSACleanup(); // освобождаем сокеты, т.е. завершаем использование Ws2_32.dll
 	server->setStatus(s::working);
 
-	int client_addr_size = sizeof(server->getClient_addr());
+	int client_addr_size = sizeof(server->client_addr);
 	//Извлечение запросов на подключение из очереди
-	while (server->setClient_socket(accept(server_socket, (sockaddr *)&(server->getClient_addr()), &client_addr_size)))
+	while (server->setClient_socket(accept(server_socket, (sockaddr *)&(server->client_addr), &client_addr_size)))
 	{
 		info client;
 		client.ID = server->new_ID();
 
-		server->setHst(gethostbyaddr((char *)(server->getClient_addr().sin_addr.s_addr), 4, AF_INET));
-		client.name = (server->getHst()) ? server->getHst()->h_name : "";
-		client.IPv4 = inet_ntoa(server->getClient_addr().sin_addr);
+		server->hst = gethostbyaddr((char *)(server->client_addr.sin_addr.s_addr), 4, AF_INET);
+		client.name = (server->hst) ? server->hst->h_name : "";
+		client.IPv4 = inet_ntoa(server->client_addr.sin_addr);
 		client.sock = server->getClient_socket();
 		client.mpath = host_info.mpath;
-		
-		EnterCriticalSection(&(server->getCs_info()));
+
+		EnterCriticalSection(&(server->cs_info));
 		server->setClient_info(client);
-		LeaveCriticalSection(&(server->getCs_info()));
+		LeaveCriticalSection(&(server->cs_info));
 
 		DWORD thID;
 		CreateThread(NULL, NULL, WorkWithClient, &(server->client_info.back()), NULL, &thID);
@@ -136,13 +140,33 @@ void ServerInterLayer::setStatus(s new_status)
 {
 	this->status = new_status;
 }
-void ServerInterLayer::setFiles(string new_file)
+string ServerInterLayer::getFile()
 {
-	this->files.push_back(new_file);
+	WaitForSingleObject(hMutex_Files, INFINITE);
+	string s = this->files.front();
+	this->files.pop_front();
+	ReleaseMutex(hMutex_Files);
+	return s;
 }
-void ServerInterLayer::setUsers(string new_user)
+void ServerInterLayer::setFile(string new_file)
 {
+	WaitForSingleObject(hMutex_Files, INFINITE);
+	this->files.push_back(new_file);
+	ReleaseMutex(hMutex_Files);
+}
+string ServerInterLayer::getUser()
+{
+	WaitForSingleObject(hMutex_Users, INFINITE);
+	string s = this->users.front();
+	this->users.pop_front();
+	ReleaseMutex(hMutex_Users);
+	return s;
+}
+void ServerInterLayer::setUser(string new_user)
+{
+	WaitForSingleObject(hMutex_Users, INFINITE);
 	this->users.push_back(new_user);
+	ReleaseMutex(hMutex_Users);
 }
 void ServerInterLayer::setClient_info(info new_client_info)
 {
@@ -160,5 +184,23 @@ SOCKET ServerInterLayer::setClient_socket(SOCKET new_client_socket)
 u_short ServerInterLayer::getPort()
 {
 	return this->port;
+}
+void ServerInterLayer::pushLog(string message)
+{
+	WaitForSingleObject(hMutex_Log, INFINITE);
+	this->log.push_back(message);
+	ReleaseMutex(hMutex_Log);
+}
+string ServerInterLayer::popLog()
+{
+	WaitForSingleObject(hMutex_Log, INFINITE);
+	string s = this->log.front();
+	this->log.pop_front();
+	ReleaseMutex(hMutex_Log);
+	return s;
+}
+bool ServerInterLayer::Log_isEmpty()
+{
+	return this->log.empty();
 }
 #pragma endregion

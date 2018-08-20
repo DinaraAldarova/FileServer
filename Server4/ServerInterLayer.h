@@ -27,15 +27,18 @@ private:
 	s status = s::error;
 	SOCKET client_socket;//создавать новый сокет
 	u_short port = 665;
-	
+	list <string> log = {};
+	list<string> files = {};
+	list<string> users = {};
+	HANDLE hMutex_Log;
+	HANDLE hMutex_Users;
+	HANDLE hMutex_Files;
 
 public:
 	char buff[4096] = "";
 	sockaddr_in client_addr;
 	HOSTENT * hst;
 	list <info> client_info = {};
-	list<string> files;
-	list<string> users = {};
 	bool isOutDated_Users = false;
 	bool isOutDated_Files = false;
 	//Критическая секция для работы с client_info
@@ -53,12 +56,17 @@ public:
 	ServerInterLayer();
 	s getStatus();
 	void setStatus(s new_status);
-	void setFiles(string new_file);
-	void setUsers(string new_user);
+	string getFile();
+	void setFile(string new_file);
+	string getUser();
+	void setUser(string new_user);
 	void setClient_info(info new_client_info);
 	SOCKET getClient_socket();
 	SOCKET setClient_socket(SOCKET new_client_socket);
 	u_short getPort();
+	void pushLog(string message);
+	string popLog();
+	bool Log_isEmpty();
 
 #pragma endregion
 

@@ -36,45 +36,21 @@ namespace Server4 {
 			}
 		}
 	private: System::Windows::Forms::ImageList^  imageListPlay;
-
-	protected:
-
-
 	private: System::Windows::Forms::ListView^  listView_Users;
 	private: System::Windows::Forms::ListView^  listView_Files;
-
-
-
-
-
-
-
-
 	private: System::Windows::Forms::Label^  label_IP;
 	private: System::Windows::Forms::Label^  label_IP2;
-
-
-
 	private: System::Windows::Forms::ToolTip^  toolTip1;
-
 	private: System::Windows::Forms::TabControl^  tabControl1;
 	private: System::Windows::Forms::TabPage^  tabPage1;
 	private: System::Windows::Forms::TabPage^  tabPage2;
 	private: System::Windows::Forms::TabPage^  tabPage3;
 	private: System::Windows::Forms::TextBox^  textBox_Log;
-
 	private: System::Windows::Forms::GroupBox^  groupBoxIP;
-
 	private: System::ComponentModel::IContainer^  components;
-
-	protected:
-
-	private:
 		/// <summary>
 		/// ќб€зательна€ переменна€ конструктора.
 		/// </summary>
-
-
 #pragma region Windows Form Designer generated code
 		/// <summary>
 		/// “ребуемый метод дл€ поддержки конструктора Ч не измен€йте 
@@ -260,7 +236,7 @@ namespace Server4 {
 		{
 			Sleep(100);
 		}
-		label_IP->Text = gcnew String(server.getClient_info().front().IPv4.c_str());
+		label_IP->Text = gcnew String(server.client_info.front().IPv4.c_str());
 	}
 	private: void update_info()
 	{
@@ -270,7 +246,12 @@ namespace Server4 {
 			//обновление списка доступных дл€ скачивани€ файлов
 			listView_Files->Items->Clear();
 			ListViewItem ^ file;
-			for each (string file_name in server.getFiles())
+
+			while (!server.Log_isEmpty())
+			{
+				textBox_Log->Text += gcnew String(server.popLog().c_str());
+			}
+			for each (string file_name in server.files)
 			{
 				file = gcnew ListViewItem(gcnew String(file_name.c_str()));
 				listView_Users->Items->Add(file);
@@ -283,14 +264,17 @@ namespace Server4 {
 			//обновление списка доступных пользователей
 			listView_Users->Items->Clear();
 			ListViewItem ^ user;
-			for each (string user_name in server.getUsers())
+			for each (string user_name in server.users)
 			{
 				user = gcnew ListViewItem(gcnew String(user_name.c_str()));
 				listView_Users->Items->Add(user);
 			}
 			server.isOutDated_Users = false;
 		}
-
+		while (!server.Log_isEmpty())
+		{
+			textBox_Log->Text += gcnew String(server.popLog().c_str());
+		}
 	}
 	};
 }
