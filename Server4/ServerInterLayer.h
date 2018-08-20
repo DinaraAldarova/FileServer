@@ -27,9 +27,9 @@ private:
 	s status = s::error;
 	SOCKET client_socket;//создавать новый сокет
 	u_short port = 665;
-	list <string> log = {};
-	list<string> files = {};
-	list<string> users = {};
+	list <string> log = {"11111", "2222", "333", "44", "5"};
+	list<string> files = {"f1", "f2", "f3", "f4", "f5"};
+	list<string> users = {"u1", "u2", "u3", "u4", "u5"};
 	HANDLE hMutex_Log;
 	HANDLE hMutex_Users;
 	HANDLE hMutex_Files;
@@ -39,8 +39,9 @@ public:
 	sockaddr_in client_addr;
 	HOSTENT * hst;
 	list <info> client_info = {};
-	bool isOutDated_Users = false;
-	bool isOutDated_Files = false;
+	//«аменить на false, ставить true в проверке резервной копии данных
+	bool isOutDated_Users = true;
+	bool isOutDated_Files = true;
 	// ритическа€ секци€ дл€ работы с client_info
 	CRITICAL_SECTION cs_info;
 	CRITICAL_SECTION cs_files;

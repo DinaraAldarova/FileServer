@@ -35,4 +35,7 @@
       <Filter>Файлы ресурсов</Filter>
     </EmbeddedResource>
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="ToDo.txt" />
+  </ItemGroup>
 </Project>
