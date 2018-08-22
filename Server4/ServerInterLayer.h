@@ -14,6 +14,7 @@ struct info
 	int ID;
 	string name;
 	string IPv4;
+	char buff[4096] = "";
 	HANDLE stream; //где идет работа с клиентом, обработка входа/выхода
 	SOCKET sock;
 	HANDLE mailslot;
@@ -35,7 +36,6 @@ private:
 	HANDLE hMutex_Files;
 
 public:
-	char buff[4096] = "";
 	sockaddr_in client_addr;
 	HOSTENT * hst;
 	list <info> client_info = {};

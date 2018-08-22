@@ -20,7 +20,9 @@ void ServerInterLayer::init()
 }
 DWORD WINAPI initialize(LPVOID param)
 {
-	if (WSAStartup(0x202, (WSADATA *)&(server->buff[0])))
+	info host_info;
+	host_info.ID = 0;
+	if (WSAStartup(0x202, (WSADATA *)&(host_info.buff[0])))
 	{
 		server->setStatus(s::error);
 		return 0;
@@ -53,8 +55,6 @@ DWORD WINAPI initialize(LPVOID param)
 		server->setStatus(s::error);
 		return 0;
 	}
-	info host_info;
-	host_info.ID = 0;
 	WSADATA wsaData;
 	WSAStartup(MAKEWORD(1, 1), &wsaData); // инициализируем socket'ы используя Ws2_32.dll для процесса
 
@@ -121,7 +121,8 @@ DWORD WINAPI WorkWithClient(LPVOID param)
 	client.stream = GetCurrentThread();
 	//Добавить mailslot
 
-
+	itoa(client.ID, client.buff, 10);
+	send(client.sock, &client.buff[0], strlen(client.buff) + 1, 0);	//отправил команду
 
 	return 0;
 }
