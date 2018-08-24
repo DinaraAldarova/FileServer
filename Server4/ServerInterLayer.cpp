@@ -68,9 +68,11 @@ DWORD WINAPI initialize(LPVOID param)
 			m_HostIP = ((LPIN_ADDR)lphost->h_addr)->s_addr; // преобразуем переменную типа LPIN_ADDR в DWORD
 	}
 	host_info.name = string(HostName);
+	host_info.status = n::server;
 	host_info.IPv4 = inet_ntoa(*((in_addr*)lphost->h_addr_list[0]));
 	host_info.stream = GetCurrentThread();
 	host_info.mpath = "D:\\Client";
+	host_info.sock = server_socket;
 	server->client_info.push_back(host_info);
 	WSACleanup(); // освобождаем сокеты, т.е. завершаем использование Ws2_32.dll
 	server->setStatus(s::working);
@@ -81,8 +83,8 @@ DWORD WINAPI initialize(LPVOID param)
 	{
 		info client;
 		client.ID = server->new_ID();
-
-		server->hst = gethostbyaddr((char *)(server->client_addr.sin_addr.s_addr), 4, AF_INET);
+		ULONG a = server->client_addr.sin_addr.S_un.S_addr;
+		server->hst = gethostbyaddr((char *)(a), 4, AF_INET);
 		client.name = (server->hst) ? server->hst->h_name : "";
 		client.IPv4 = inet_ntoa(server->client_addr.sin_addr);
 		client.sock = server->getClient_socket();
@@ -110,7 +112,9 @@ int ServerInterLayer::new_ID()
 
 int ServerInterLayer::Exit()
 {
-	/**/
+	//почистить сокеты?
+	WSACleanup();
+	server->setStatus(s::error);
 	return 0;
 }
 
@@ -119,10 +123,13 @@ DWORD WINAPI WorkWithClient(LPVOID param)
 	info* c_client = (info*)param;
 	info client = *c_client;
 	client.stream = GetCurrentThread();
+	client.status = n::on;
 	//Добавить mailslot
 
 	itoa(client.ID, client.buff, 10);
 	send(client.sock, &client.buff[0], strlen(client.buff) + 1, 0);	//отправил команду
+	server->isOutDated_Users = true;
+
 
 	return 0;
 }
@@ -141,10 +148,11 @@ void ServerInterLayer::setStatus(s new_status)
 {
 	this->status = new_status;
 }
-list<string> ServerInterLayer::getFiles()
+vector<string> ServerInterLayer::getFiles()
 {
 	WaitForSingleObject(hMutex_Files, INFINITE);
-	list<string> res = this->files;
+	vector<string> res = this->files;
+	isOutDated_Files = false;
 	ReleaseMutex(hMutex_Files);
 	return res;
 }
@@ -154,10 +162,18 @@ void ServerInterLayer::setFile(string new_file)
 	this->files.push_back(new_file);
 	ReleaseMutex(hMutex_Files);
 }
-list<string> ServerInterLayer::getUsers()
+vector<string> ServerInterLayer::getUsers()
 {
 	WaitForSingleObject(hMutex_Users, INFINITE);
-	list<string> res = this->users;
+	vector<string> mas = { " (server)", " (off)", " (on)" };
+	vector<string> res = {};
+	for each (info user in client_info)
+	{
+		res.push_back("user_" + std::to_string(user.ID) + mas.at((int)user.status));
+	}
+	this->users.clear();
+	users = res;
+	isOutDated_Users = false;
 	ReleaseMutex(hMutex_Users);
 	return res;
 }
