@@ -22,7 +22,7 @@ DWORD WINAPI initialize(LPVOID param)
 {
 	info host_info;
 	host_info.ID = 0;
-	if (WSAStartup(0x202, (WSADATA *)&(host_info.buff[0])))
+	if (WSAStartup(0x202, (WSADATA *)&(host_info.buff[0])) != 0)
 	{
 		server->setStatus(s::error);
 		return 0;
@@ -30,17 +30,17 @@ DWORD WINAPI initialize(LPVOID param)
 	//—копировать этот код и сделать функцию создани€ сокета
 	SOCKET server_socket;
 	sockaddr_in local_addr;
-	server_socket = socket(AF_INET, SOCK_STREAM, 0);
-	if (server_socket < 0)
+	local_addr.sin_addr.S_un.S_addr = INADDR_ANY;
+	local_addr.sin_port = htons(server->getPort());
+	local_addr.sin_family = AF_INET;
+	server_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP/*или NULL???*/);
+	if (server_socket == INVALID_SOCKET)
 	{
 		WSACleanup();
 		server->setStatus(s::error);
 		return 0;
 	}
-	local_addr.sin_family = AF_INET;
-	local_addr.sin_port = htons(server->getPort());
-	local_addr.sin_addr.s_addr = 0;
-	if (bind(server_socket, (sockaddr *)&local_addr, sizeof(local_addr)))
+	if (bind(server_socket, (sockaddr *)&local_addr, sizeof(local_addr)) == SOCKET_ERROR)
 	{
 		closesocket(server_socket);
 		WSACleanup();
@@ -48,15 +48,15 @@ DWORD WINAPI initialize(LPVOID param)
 		return 0;
 	}
 	//ќжидание подключений
-	if (listen(server_socket, 20))
+	if (listen(server_socket, SOMAXCONN) == SOCKET_ERROR)
 	{
 		closesocket(server_socket);
 		WSACleanup();
 		server->setStatus(s::error);
 		return 0;
 	}
-	WSADATA wsaData;
-	WSAStartup(MAKEWORD(1, 1), &wsaData); // инициализируем socket'ы использу€ Ws2_32.dll дл€ процесса
+	//WSADATA wsaData;
+	//WSAStartup(MAKEWORD(1, 1), &wsaData); // инициализируем socket'ы использу€ Ws2_32.dll дл€ процесса
 
 	char HostName[1024]; // создаем буфер дл€ имени хоста
 	DWORD m_HostIP = 0;
@@ -74,12 +74,13 @@ DWORD WINAPI initialize(LPVOID param)
 	host_info.mpath = "D:\\Client";
 	host_info.sock = server_socket;
 	server->client_info.push_back(host_info);
-	WSACleanup(); // освобождаем сокеты, т.е. завершаем использование Ws2_32.dll
+	//WSACleanup(); // освобождаем сокеты, т.е. завершаем использование Ws2_32.dll
 	server->setStatus(s::working);
 
 	int client_addr_size = sizeof(server->client_addr);
 	//»звлечение запросов на подключение из очереди
-	while (server->setClient_socket(accept(server_socket, (sockaddr *)&(server->client_addr), &client_addr_size)))
+	//while (server->setClient_socket(accept(server_socket, (sockaddr *)&(server->client_addr), &client_addr_size)) != 0)
+	while (server->setClient_socket(accept(server_socket, NULL, NULL)) != INVALID_SOCKET)
 	{
 		info client;
 		client.ID = server->new_ID();
