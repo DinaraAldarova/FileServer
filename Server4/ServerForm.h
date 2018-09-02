@@ -239,7 +239,7 @@ namespace Server4 {
 		{
 			Sleep(100);
 		}
-		label_IP->Text = gcnew String(server.client_info.front().IPv4.c_str());
+		label_IP->Text = gcnew String(server.IPv4.c_str());
 		//update_info();
 	}
 	private: void update_info()

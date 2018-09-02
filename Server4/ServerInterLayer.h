@@ -14,9 +14,7 @@ enum class n { server, off, on };
 struct info
 {
 	int ID;
-	string name;
 	n status;
-	string IPv4;
 	char buff[4096] = "";
 	HANDLE stream; //где идет работа с клиентом, обработка входа/выхода
 	SOCKET sock;
@@ -39,8 +37,8 @@ private:
 	HANDLE hMutex_Files;
 
 public:
-	sockaddr_in client_addr;
 	HOSTENT * hst;
+	string IPv4;
 	vector <info> client_info = {};
 	//Заменить на false, ставить true в проверке резервной копии данных
 	bool isOutDated_Users = true;

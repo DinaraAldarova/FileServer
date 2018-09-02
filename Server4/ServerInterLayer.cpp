@@ -1,6 +1,8 @@
 #include <Windows.h>
+#include <cstring>
 #include "ServerInterLayer.h"
 #pragma comment( lib, "ws2_32.lib" )
+//#define client server->client_info[n]
 ServerInterLayer * server;
 ServerInterLayer::ServerInterLayer()
 {
@@ -67,36 +69,31 @@ DWORD WINAPI initialize(LPVOID param)
 		if (lphost = gethostbyname(HostName)) // получаем IP хоста, т.е. нашего компа
 			m_HostIP = ((LPIN_ADDR)lphost->h_addr)->s_addr; // преобразуем переменную типа LPIN_ADDR в DWORD
 	}
-	host_info.name = string(HostName);
 	host_info.status = n::server;
-	host_info.IPv4 = inet_ntoa(*((in_addr*)lphost->h_addr_list[0]));
 	host_info.stream = GetCurrentThread();
 	host_info.mpath = "D:\\Client";
 	host_info.sock = server_socket;
+	server->IPv4 = inet_ntoa(*((in_addr*)lphost->h_addr_list[0]));
+	EnterCriticalSection(&(server->cs_info));
 	server->client_info.push_back(host_info);
-	//WSACleanup(); // освобождаем сокеты, т.е. завершаем использование Ws2_32.dll
+	LeaveCriticalSection(&(server->cs_info));
 	server->setStatus(s::working);
 
-	int client_addr_size = sizeof(server->client_addr);
 	//Извлечение запросов на подключение из очереди
-	//while (server->setClient_socket(accept(server_socket, (sockaddr *)&(server->client_addr), &client_addr_size)) != 0)
 	while (server->setClient_socket(accept(server_socket, NULL, NULL)) != INVALID_SOCKET)
 	{
 		info client;
-		client.ID = server->new_ID();
-		ULONG a = server->client_addr.sin_addr.S_un.S_addr;
-		server->hst = gethostbyaddr((char *)(a), 4, AF_INET);
-		client.name = (server->hst) ? server->hst->h_name : "";
-		client.IPv4 = inet_ntoa(server->client_addr.sin_addr);
+		client.ID = -1;
 		client.sock = server->getClient_socket();
 		client.mpath = host_info.mpath;
 
 		EnterCriticalSection(&(server->cs_info));
 		server->setClient_info(client);
+		int i = server->client_info.size() - 1;
 		LeaveCriticalSection(&(server->cs_info));
 
 		DWORD thID;
-		CreateThread(NULL, NULL, WorkWithClient, &(server->client_info.back()), NULL, &thID);
+		CreateThread(NULL, NULL, WorkWithClient, &i, NULL, &thID);
 	}
 
 	return 0;
@@ -104,9 +101,14 @@ DWORD WINAPI initialize(LPVOID param)
 
 int ServerInterLayer::new_ID()
 {
-	int a;
+	int a = 0;
 	EnterCriticalSection(&cs_info);
-	a = client_info.back().ID + 1;
+	for each (info user in client_info)
+	{
+		if (user.ID > a)
+			a = user.ID;
+	}
+	a++;
 	LeaveCriticalSection(&cs_info);
 	return a;
 }
@@ -114,6 +116,10 @@ int ServerInterLayer::new_ID()
 int ServerInterLayer::Exit()
 {
 	//почистить сокеты?
+	for each (info user in client_info)
+	{
+		closesocket(user.sock);
+	}
 	WSACleanup();
 	server->setStatus(s::error);
 	return 0;
@@ -121,15 +127,73 @@ int ServerInterLayer::Exit()
 
 DWORD WINAPI WorkWithClient(LPVOID param)
 {
-	info* c_client = (info*)param;
-	info client = *c_client;
-	client.stream = GetCurrentThread();
-	client.status = n::on;
+	int * num = (int *)param;
+	int n = *num;
+	server->client_info[n].stream = GetCurrentThread();
+	server->client_info[n].status = n::on;
 	//Добавить mailslot
 
-	itoa(client.ID, client.buff, 10);
-	send(client.sock, &client.buff[0], strlen(client.buff) + 1, 0);	//отправил команду
+	if (recv(server->client_info[n].sock, &server->client_info[n].buff[0], sizeof(server->client_info[n].buff), 0) == SOCKET_ERROR)
+	{
+		;//ошибка сокета
+	}
+	if (strcmp(server->client_info[n].buff, "new") == 0)
+	{
+		//новый логин
+		EnterCriticalSection(&server->cs_info);
+		server->client_info[n].ID = server->new_ID();
+		LeaveCriticalSection(&server->cs_info);
+		itoa(server->client_info[n].ID, server->client_info[n].buff, 10);
+		send(server->client_info[n].sock, &server->client_info[n].buff[0], strlen(server->client_info[n].buff) + 1, 0);	//отправил команду
+	}
+	else if (int num = atoi(server->client_info[n].buff) > 0)
+	{
+		//это клиент с номером num, перезарегать его
+		;//удалить все записи с таким ID, отдать команду закрыть их потоки. Тогда один ID - одно подключение!!!
+		vector<info>::iterator iter = server->client_info.begin();
+		while (iter != server->client_info.end())
+		{
+			for (; iter->ID != num && iter != server->client_info.end(); iter++) {}
+			if (iter->ID == num)
+			{
+				if (iter->status == n::on)
+
+					;//отправить команду завершить работу другого потока
+				server->client_info.erase(iter);
+			}
+		}
+
+		server->client_info[n].ID = num;
+		strcpy(server->client_info[n].buff, "done");
+		send(server->client_info[n].sock, &server->client_info[n].buff[0], strlen(server->client_info[n].buff) + 1, 0);	//отправил команду
+	}
+	else
+	{
+		;//прислано что-то неверное
+	}
 	server->isOutDated_Users = true;
+
+	bool work = true;
+	while (work)
+	{
+		if (recv(server->client_info[n].sock, &server->client_info[n].buff[0], sizeof(server->client_info[n].buff), 0) == SOCKET_ERROR)
+		{
+			;//ошибка сокета
+		}
+		if (strcmp(server->client_info[n].buff, "pause") == 0)
+		{
+			server->client_info[n].status = n::off;
+		}
+		else if (strcmp(server->client_info[n].buff, "logout") == 0)
+		{
+
+		}
+
+
+
+
+	}
+
 
 
 	return 0;
