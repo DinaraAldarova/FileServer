@@ -2,14 +2,13 @@
 #include <cstring>
 #include "ServerInterLayer.h"
 #pragma comment( lib, "ws2_32.lib" )
-//#define client server->client_info[n]
+//#define client server->client_info[id]
 ServerInterLayer * server;
 ServerInterLayer::ServerInterLayer()
 {
 	InitializeCriticalSection(&cs_info);
 	hMutex_Log = CreateMutex(NULL, false, NULL);
-	hMutex_Users = CreateMutex(NULL, false, NULL);
-	hMutex_Files = CreateMutex(NULL, false, NULL);
+	hMutex_Users_Files = CreateMutex(NULL, false, NULL);
 	init();
 }
 DWORD WINAPI initialize(LPVOID param);
@@ -23,7 +22,7 @@ void ServerInterLayer::init()
 DWORD WINAPI initialize(LPVOID param)
 {
 	info host_info;
-	host_info.ID = 0;
+	host_info.name = 0;
 	if (WSAStartup(0x202, (WSADATA *)&(host_info.buff[0])) != 0)
 	{
 		server->setStatus(s::error);
@@ -71,7 +70,7 @@ DWORD WINAPI initialize(LPVOID param)
 	}
 	host_info.status = n::server;
 	host_info.stream = GetCurrentThread();
-	host_info.mpath = "D:\\Client";
+	server->mpath = "D:\\Client";
 	host_info.sock = server_socket;
 	server->IPv4 = inet_ntoa(*((in_addr*)lphost->h_addr_list[0]));
 	EnterCriticalSection(&(server->cs_info));
@@ -83,9 +82,8 @@ DWORD WINAPI initialize(LPVOID param)
 	while (server->setClient_socket(accept(server_socket, NULL, NULL)) != INVALID_SOCKET)
 	{
 		info client;
-		client.ID = -1;
+		client.name = -1;
 		client.sock = server->getClient_socket();
-		client.mpath = host_info.mpath;
 
 		EnterCriticalSection(&(server->cs_info));
 		server->setClient_info(client);
@@ -99,14 +97,14 @@ DWORD WINAPI initialize(LPVOID param)
 	return 0;
 }
 
-int ServerInterLayer::new_ID()
+int ServerInterLayer::new_name()
 {
 	int a = 0;
 	EnterCriticalSection(&cs_info);
 	for each (info user in client_info)
 	{
-		if (user.ID > a)
-			a = user.ID;
+		if (user.name > a)
+			a = user.name;
 	}
 	a++;
 	LeaveCriticalSection(&cs_info);
@@ -128,44 +126,27 @@ int ServerInterLayer::Exit()
 DWORD WINAPI WorkWithClient(LPVOID param)
 {
 	int * num = (int *)param;
-	int n = *num;
-	server->client_info[n].stream = GetCurrentThread();
-	server->client_info[n].status = n::on;
+	const int id = *num;
+	server->client_info[id].stream = GetCurrentThread();
+	server->client_info[id].status = n::on;
 	//ƒобавить mailslot
 
-	if (recv(server->client_info[n].sock, &server->client_info[n].buff[0], sizeof(server->client_info[n].buff), 0) == SOCKET_ERROR)
-	{
-		;//ошибка сокета
-	}
-	if (strcmp(server->client_info[n].buff, "new") == 0)
+	server->receive(id);
+	if (strcmp(server->client_info[id].buff, "new") == 0)
 	{
 		//новый логин
 		EnterCriticalSection(&server->cs_info);
-		server->client_info[n].ID = server->new_ID();
+		server->client_info[id].name = server->new_name();
 		LeaveCriticalSection(&server->cs_info);
-		itoa(server->client_info[n].ID, server->client_info[n].buff, 10);
-		send(server->client_info[n].sock, &server->client_info[n].buff[0], strlen(server->client_info[n].buff) + 1, 0);	//отправил команду
+		itoa(server->client_info[id].name, server->client_info[id].buff, 10);
+		server->send_buff(id);
 	}
-	else if (int num = atoi(server->client_info[n].buff) > 0)
+	else if (int num = atoi(server->client_info[id].buff) > 0)
 	{
-		//это клиент с номером num, перезарегать его
-		;//удалить все записи с таким ID, отдать команду закрыть их потоки. “огда один ID - одно подключение!!!
-		vector<info>::iterator iter = server->client_info.begin();
-		while (iter != server->client_info.end())
-		{
-			for (; iter->ID != num && iter != server->client_info.end(); iter++) {}
-			if (iter->ID == num)
-			{
-				if (iter->status == n::on)
-
-					;//отправить команду завершить работу другого потока
-				server->client_info.erase(iter);
-			}
-		}
-
-		server->client_info[n].ID = num;
-		strcpy(server->client_info[n].buff, "done");
-		send(server->client_info[n].sock, &server->client_info[n].buff[0], strlen(server->client_info[n].buff) + 1, 0);	//отправил команду
+		//это клиент с именем num, зарегать его
+		server->client_info[id].name = num;
+		strcpy(server->client_info[id].buff, "done");
+		server->send_buff(id);
 	}
 	else
 	{
@@ -176,17 +157,19 @@ DWORD WINAPI WorkWithClient(LPVOID param)
 	bool work = true;
 	while (work)
 	{
-		if (recv(server->client_info[n].sock, &server->client_info[n].buff[0], sizeof(server->client_info[n].buff), 0) == SOCKET_ERROR)
+		server->receive(id);
+		if (strcmp(server->client_info[id].buff, "pause") == 0)
 		{
-			;//ошибка сокета
+			server->client_info[id].status = n::off;
+			//пока не дописала
 		}
-		if (strcmp(server->client_info[n].buff, "pause") == 0)
+		else if (strcmp(server->client_info[id].buff, "logout") == 0)
 		{
-			server->client_info[n].status = n::off;
+			;//еще не написала
 		}
-		else if (strcmp(server->client_info[n].buff, "logout") == 0)
+		else if (strcmp(server->client_info[id].buff, "update") == 0)
 		{
-
+			server->sendFiles(id);
 		}
 
 
@@ -199,9 +182,82 @@ DWORD WINAPI WorkWithClient(LPVOID param)
 	return 0;
 }
 
-void ServerInterLayer::quit_client(int ID)
+bool ServerInterLayer::sendFiles(int id)
 {
-	/**/
+	int i = 0;
+	while (i < client_info[id].files.size)
+	{
+		bool end = false;
+		int j = 0;
+		strcpy(client_info[id].buff, "");
+		while (i < client_info[id].files.size && !end)
+		{
+			if (client_info[id].files[i].size < (size_buff - j - 1))
+			{
+				strcat(client_info[id].buff, client_info[id].files[i].c_str());
+				strcat(client_info[id].buff, "|");
+				j += client_info[id].files[i].size + 1;
+				i++;
+			}
+			else
+			{
+				end = true;
+			}
+		}
+		strcat(client_info[id].buff, "*");
+		send_buff(id);
+	}
+	strcpy(client_info[id].buff, "done");
+	send_buff(id);
+	return true;
+}
+
+int ServerInterLayer::send_buff(int id)
+{
+	return send(client_info[id].sock, &client_info[id].buff[0], strlen(client_info[id].buff) + 1, 0);	//отправил команду
+}
+
+int ServerInterLayer::receive(int id)
+{
+	int res;
+	if (res = recv(client_info[id].sock, &client_info[id].buff[0], sizeof(client_info[id].buff), 0) == SOCKET_ERROR)
+	{
+		//ошибка сокета!
+		quit_client(id);
+	}
+	return res;
+}
+
+void ServerInterLayer::quit_client(int id)
+{
+	//сохран€ю текущие данные:
+	string name = mpath + to_string(client_info[id].name) + ".txt";
+	//создаю файлик с названием name.txt
+	ofstream save(name);
+	//пишу туда содержимое files
+	for (int i = 0; i < client_info[id].files.size(); i++)
+		save << client_info[id].files[i] << endl;
+	save.close();
+
+	//закрываю поток работы с клиентом
+	client_info[id].status = n::off;
+	ExitThread(0);
+}
+
+void ServerInterLayer::new_user(int name)
+{
+	WaitForSingleObject(hMutex_Users_Files, INFINITE);
+	int size = users.size;
+	if (name > size)
+	{
+		;//как ты это сделал вообще? пропустил одно (или больше) им€ клиента
+	}
+	else if (size == name)
+	{
+		users.reserve(name + 1);
+		users[name] = users[0];
+	}
+	ReleaseMutex(hMutex_Users_Files);
 }
 
 #pragma region Get- и set-методы
@@ -215,38 +271,38 @@ void ServerInterLayer::setStatus(s new_status)
 }
 vector<string> ServerInterLayer::getFiles()
 {
-	WaitForSingleObject(hMutex_Files, INFINITE);
+	WaitForSingleObject(hMutex_Users_Files, INFINITE);
 	vector<string> res = this->files;
 	isOutDated_Files = false;
-	ReleaseMutex(hMutex_Files);
+	ReleaseMutex(hMutex_Users_Files);
 	return res;
 }
 void ServerInterLayer::setFile(string new_file)
 {
-	WaitForSingleObject(hMutex_Files, INFINITE);
+	WaitForSingleObject(hMutex_Users_Files, INFINITE);
 	this->files.push_back(new_file);
-	ReleaseMutex(hMutex_Files);
+	ReleaseMutex(hMutex_Users_Files);
 }
 vector<string> ServerInterLayer::getUsers()
 {
-	WaitForSingleObject(hMutex_Users, INFINITE);
+	WaitForSingleObject(hMutex_Users_Files, INFINITE);
 	vector<string> mas = { " (server)", " (off)", " (on)" };
 	vector<string> res = {};
 	for each (info user in client_info)
 	{
-		res.push_back("user_" + std::to_string(user.ID) + mas.at((int)user.status));
+		res.push_back("user_" + std::to_string(user.name) + mas.at((int)user.status));
 	}
 	this->users.clear();
 	users = res;
 	isOutDated_Users = false;
-	ReleaseMutex(hMutex_Users);
+	ReleaseMutex(hMutex_Users_Files);
 	return res;
 }
 void ServerInterLayer::setUser(string new_user)
 {
-	WaitForSingleObject(hMutex_Users, INFINITE);
+	WaitForSingleObject(hMutex_Users_Files, INFINITE);
 	this->users.push_back(new_user);
-	ReleaseMutex(hMutex_Users);
+	ReleaseMutex(hMutex_Users_Files);
 }
 void ServerInterLayer::setClient_info(info new_client_info)
 {
