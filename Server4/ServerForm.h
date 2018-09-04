@@ -240,7 +240,6 @@ namespace Server4 {
 			Sleep(100);
 		}
 		label_IP->Text = gcnew String(server.IPv4.c_str());
-		//update_info();
 	}
 	private: void update_info()
 	{
@@ -276,6 +275,7 @@ namespace Server4 {
 	private: System::Void tabControl1_Click(System::Object^  sender, System::EventArgs^  e) 
 	{
 		update_info();
+		server.save_backup();
 	}
 };
 }
