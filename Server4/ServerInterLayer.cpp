@@ -6,6 +6,7 @@
 ServerInterLayer * server;
 ServerInterLayer::ServerInterLayer()
 {
+	save_backup();
 	InitializeCriticalSection(&cs_info);
 	hMutex_Log = CreateMutex(NULL, false, NULL);
 	hMutex_Users_Files = CreateMutex(NULL, false, NULL);
@@ -70,7 +71,7 @@ DWORD WINAPI initialize(LPVOID param)
 	}
 	host_info.status = n::server;
 	host_info.stream = GetCurrentThread();
-	server->mpath = "D:\\Client";
+	server->mpath = "D:\\Client\\";
 	host_info.sock = server_socket;
 	server->IPv4 = inet_ntoa(*((in_addr*)lphost->h_addr_list[0]));
 	EnterCriticalSection(&(server->cs_info));
@@ -170,6 +171,7 @@ DWORD WINAPI WorkWithClient(LPVOID param)
 		else if (strcmp(server->client_info[id].buff, "update") == 0)
 		{
 			server->sendFiles(id);
+			server->sendUsers(id);
 		}
 
 
@@ -182,8 +184,20 @@ DWORD WINAPI WorkWithClient(LPVOID param)
 	return 0;
 }
 
+bool ServerInterLayer::updateFiles(int id)
+{
+	client_info[id].files.clear();
+	for (int i = 0; i < access[id].size(); i++)
+	{
+		if (access[id][i])
+			client_info[id].files.push_back(files[i]);
+	}
+	return true;
+}
+
 bool ServerInterLayer::sendFiles(int id)
 {
+	updateFiles(id);
 	int i = 0;
 	while (i < client_info[id].files.size())
 	{
@@ -197,6 +211,36 @@ bool ServerInterLayer::sendFiles(int id)
 				strcat(client_info[id].buff, client_info[id].files[i].c_str());
 				strcat(client_info[id].buff, "|");
 				j += client_info[id].files[i].size() + 1;
+				i++;
+			}
+			else
+			{
+				end = true;
+			}
+		}
+		strcat(client_info[id].buff, "*");
+		send_buff(id);
+	}
+	strcpy(client_info[id].buff, "done");
+	send_buff(id);
+	return true;
+}
+
+bool ServerInterLayer::sendUsers(int id)
+{
+	int i = 0;
+	while (i < users.size())
+	{
+		bool end = false;
+		int j = 0;
+		strcpy(client_info[id].buff, "");
+		while (i < users.size() && !end)
+		{
+			if (users[i].size() < (size_buff - j - 1))
+			{
+				strcat(client_info[id].buff, users[i].c_str());
+				strcat(client_info[id].buff, "|");
+				j += users[i].size() + 1;
 				i++;
 			}
 			else
@@ -230,15 +274,6 @@ int ServerInterLayer::receive(int id)
 
 void ServerInterLayer::quit_client(int id)
 {
-	//сохраняю текущие данные:
-	string name = mpath + to_string(client_info[id].name) + ".txt";
-	//создаю файлик с названием name.txt
-	ofstream save(name);
-	//пишу туда содержимое files
-	for (int i = 0; i < client_info[id].files.size(); i++)
-		save << client_info[id].files[i] << endl;
-	save.close();
-
 	//закрываю поток работы с клиентом
 	client_info[id].status = n::off;
 	ExitThread(0);
@@ -251,13 +286,58 @@ void ServerInterLayer::new_user(int name)
 	if (name > size)
 	{
 		;//как ты это сделал вообще? пропустил одно (или больше) имя клиента
+		users.reserve(name + 1);
+		users[name] = users[0];
+		for (int i = size; i < name; i++)
+		{
+			users[i] = { -1 };//так как этого пользователя еще не добавляли
+		}
 	}
 	else if (size == name)
 	{
 		users.reserve(name + 1);
 		users[name] = users[0];
 	}
+	else
+	{
+		;//а это тот запоздавший клиент
+		users[name] = users[0];
+	}
 	ReleaseMutex(hMutex_Users_Files);
+}
+
+bool ServerInterLayer::save_backup()
+{
+	ofstream backup(mpath + "backup_files.txt");
+	for (int i = 0; i < files.size(); i++)
+	{
+		backup << files[i] << endl;
+	}
+	backup.close();
+
+	backup.open(mpath + "backup_users.txt");
+	for (int i = 0; i < users.size(); i++)
+	{
+		backup << users[i] << endl;
+	}
+	backup.close();
+
+	backup.open(mpath + "backup_access.txt");
+	for (int i = 0; i < access.size(); i++)
+	{
+		for (int j = 0; j < access[i].size(); j++)
+		{
+			backup << access[i][j];
+		}
+		backup << endl;
+	}
+	backup.close();
+	return true;
+}
+
+bool ServerInterLayer::load_from_backup()
+{
+	return true;
 }
 
 #pragma region Get- и set-методы

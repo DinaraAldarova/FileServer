@@ -33,7 +33,7 @@ private:
 	list <string> log = { "11111", "2222", "333", "44", "5" };
 	vector <string> files = { "f1", "f2", "f3", "f4", "f5" };
 	vector <string> users = { "u1", "u2", "u3", "u4", "u5" };
-	vector<vector<bool>> access;
+	vector<vector<bool>> access{ {true, true, false}, {true, false}, {false}, { } };
 	HANDLE hMutex_Log;
 	HANDLE hMutex_Users_Files;
 
@@ -82,10 +82,14 @@ private:
 
 public:
 	void init();
+	bool updateFiles(int id);
 	bool sendFiles(int id);
+	bool sendUsers(int id);
 	int send_buff(int id);
 	int receive(int id);
 	void new_user(int name);
+	bool save_backup();
+	bool load_from_backup();
 	int Exit();
 
 #pragma endregion
