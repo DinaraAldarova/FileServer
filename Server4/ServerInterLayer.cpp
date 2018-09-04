@@ -6,7 +6,6 @@
 ServerInterLayer * server;
 ServerInterLayer::ServerInterLayer()
 {
-	save_backup();
 	InitializeCriticalSection(&cs_info);
 	hMutex_Log = CreateMutex(NULL, false, NULL);
 	hMutex_Users_Files = CreateMutex(NULL, false, NULL);
@@ -71,7 +70,7 @@ DWORD WINAPI initialize(LPVOID param)
 	}
 	host_info.status = n::server;
 	host_info.stream = GetCurrentThread();
-	server->mpath = "D:\\Client\\";
+	server->mpath = "D:\\Server\\";
 	host_info.sock = server_socket;
 	server->IPv4 = inet_ntoa(*((in_addr*)lphost->h_addr_list[0]));
 	EnterCriticalSection(&(server->cs_info));
