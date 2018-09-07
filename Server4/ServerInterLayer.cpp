@@ -185,18 +185,18 @@ DWORD WINAPI WorkWithClient(LPVOID param)
 bool ServerInterLayer::sendFiles(int id)
 {
 	int i = 0;
-	while (i < client_info[id].files.size)
+	while (i < client_info[id].files.size())
 	{
 		bool end = false;
 		int j = 0;
 		strcpy(client_info[id].buff, "");
-		while (i < client_info[id].files.size && !end)
+		while (i < client_info[id].files.size() && !end)
 		{
-			if (client_info[id].files[i].size < (size_buff - j - 1))
+			if (client_info[id].files[i].size() < (size_buff - j - 1))
 			{
 				strcat(client_info[id].buff, client_info[id].files[i].c_str());
 				strcat(client_info[id].buff, "|");
-				j += client_info[id].files[i].size + 1;
+				j += client_info[id].files[i].size() + 1;
 				i++;
 			}
 			else
@@ -247,7 +247,7 @@ void ServerInterLayer::quit_client(int id)
 void ServerInterLayer::new_user(int name)
 {
 	WaitForSingleObject(hMutex_Users_Files, INFINITE);
-	int size = users.size;
+	int size = users.size();
 	if (name > size)
 	{
 		;//как ты это сделал вообще? пропустил одно (или больше) имя клиента
