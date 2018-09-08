@@ -307,35 +307,152 @@ void ServerInterLayer::new_user(int name)
 
 bool ServerInterLayer::save_backup()
 {
-	ofstream backup(mpath + "backup_files.txt");
+	WaitForSingleObject(hMutex_Users_Files, INFINITE);
+	ofstream backup(mpath + "backup_files.txt", ios_base::out | ios_base::trunc);
+	backup << files.size();
 	for (int i = 0; i < files.size(); i++)
 	{
-		backup << files[i] << endl;
+		backup << endl << files[i];
 	}
 	backup.close();
+	pushLog("Записана резервная копия списка файлов");
 
-	backup.open(mpath + "backup_users.txt");
+	backup.open(mpath + "backup_users.txt", ios_base::out | ios_base::trunc);
+	backup << users.size();
 	for (int i = 0; i < users.size(); i++)
 	{
-		backup << users[i] << endl;
+		backup << endl << users[i];
 	}
 	backup.close();
+	pushLog("Записана резервная копия списка пользователей");
 
-	backup.open(mpath + "backup_access.txt");
+	backup.open(mpath + "backup_access.txt", ios_base::out | ios_base::trunc);
+	backup << access.size() << endl << access[0].size();
 	for (int i = 0; i < access.size(); i++)
 	{
+		backup << endl;
 		for (int j = 0; j < access[i].size(); j++)
 		{
 			backup << access[i][j];
 		}
-		backup << endl;
 	}
 	backup.close();
+	pushLog("Записана резервная копия таблицы доступа к файлам");
+	ReleaseMutex(hMutex_Users_Files);
 	return true;
 }
 
 bool ServerInterLayer::load_from_backup()
 {
+	WaitForSingleObject(hMutex_Users_Files, INFINITE);
+	ifstream backup(mpath + "backup_files.txt");
+	char buf[50];
+	int s_files, s_users;
+	bool error = false;
+	if (backup.is_open())
+	{
+		files.clear();
+		backup.getline(buf, sizeof(buf));
+		s_files = atoi(buf);
+		int i = 0;
+		for (; i < s_files && !backup.eof(); i++)
+		{
+			backup.getline(buf, sizeof(buf));
+			files.push_back(buf);
+		}
+		backup.close();
+		pushLog("Загружена резервная копия списка файлов");
+		if (i < s_files)
+		{
+			error = true;
+			pushLog("Резервная копия списка файлов была нарушена");
+		}
+	}
+	else
+	{
+		error = true;
+		pushLog("Не удалось загрузить резервную копию списка файлов");
+	}
+
+	backup.open(mpath + "backup_users.txt");
+	if (backup.is_open())
+	{
+		users.clear();
+		backup.getline(buf, sizeof(buf));
+		s_users = atoi(buf);
+		int i = 0;
+		for (; i < s_users && !backup.eof(); i++)
+		{
+			backup.getline(buf, sizeof(buf));
+			users.push_back(buf);
+		}
+		backup.close();
+		pushLog("Загружена резервная копия списка пользователей");
+		if (i < s_users)
+		{
+			error = true;
+			pushLog("Резервная копия списка пользователей была нарушена");
+		}
+	}
+	else
+	{
+		error = true;
+		pushLog("Не удалось загрузить резервную копию списка пользователей");
+	}
+
+	backup.open(mpath + "backup_access.txt");
+	if (backup.is_open())
+	{
+		access.clear();
+		backup.getline(buf, sizeof(buf));
+		int size_u = atoi(buf);
+		backup.getline(buf, sizeof(buf));
+		int size_f = atoi(buf);
+		if (size_f != s_files || size_u != s_users)
+		{
+			error = true;
+			pushLog("Резервная копия списка пользователей или файлов была нарушена");
+		}
+		else
+		{
+			int i = 0;
+			for (; i < size_u && !backup.eof(); i++)
+			{
+				backup.getline(buf, sizeof(buf));
+				vector<bool> f;
+				int j = 0;
+				for (; j < size_f; j++)
+					f.push_back(atoi(buf));
+				access.push_back(f);
+				updateFiles(i);
+				if (j < size_f)
+				{
+					error = true;
+					pushLog("Резервная копия таблицы доступа была нарушена: отсутствует метка файла");
+				}
+			}
+			backup.close();
+			pushLog("Загружена резервная копия таблицы доступа к файлам");
+			if (i < size_u)
+			{
+				error = true;
+				pushLog("Резервная копия таблицы доступа была нарушена: отсутствует метка пользователя");
+			}
+		}
+	}
+	else
+	{
+		error = true;
+		pushLog("Не удалось загрузить резервную копию таблицы доступа к файлам");
+	}
+	if (error)
+	{
+		;//по-хорошему, все надо почистить
+	}
+	//открыть директорию и проверить файлы
+	isOutDated_Files = true;
+	isOutDated_Users = true;
+	ReleaseMutex(hMutex_Users_Files);
 	return true;
 }
 
