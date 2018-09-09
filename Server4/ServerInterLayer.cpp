@@ -140,6 +140,7 @@ DWORD WINAPI WorkWithClient(LPVOID param)
 		LeaveCriticalSection(&server->cs_info);
 		itoa(server->client_info[id].name, server->client_info[id].buff, 10);
 		server->send_buff(id);
+		server->new_user(id);
 	}
 	else if (int num = atoi(server->client_info[id].buff) > 0)
 	{
@@ -150,7 +151,7 @@ DWORD WINAPI WorkWithClient(LPVOID param)
 	}
 	else
 	{
-		;//прислано что-то неверное
+		server->pushLog("Прислано что-то неверное");
 	}
 	server->isOutDated_Users = true;
 
@@ -165,12 +166,12 @@ DWORD WINAPI WorkWithClient(LPVOID param)
 		}
 		else if (strcmp(server->client_info[id].buff, "logout") == 0)
 		{
-			;//еще не написала
+			server->pushLog("вышел");
+			//еще не написала
 		}
 		else if (strcmp(server->client_info[id].buff, "update") == 0)
 		{
-			server->sendFiles(id);
-			server->sendUsers(id);
+			server->sendFiles_Users(id);
 		}
 
 
@@ -183,7 +184,7 @@ DWORD WINAPI WorkWithClient(LPVOID param)
 	return 0;
 }
 
-bool ServerInterLayer::updateFiles(int id)
+bool ServerInterLayer::update_clientFiles(int id)
 {
 	client_info[id].files.clear();
 	for (int i = 0; i < access[id].size(); i++)
@@ -194,9 +195,70 @@ bool ServerInterLayer::updateFiles(int id)
 	return true;
 }
 
-bool ServerInterLayer::sendFiles(int id)
+bool ServerInterLayer::updateFiles_Users()
 {
-	updateFiles(id);
+	WaitForSingleObject(hMutex_Users_Files, INFINITE);
+	pushLog("Обновляю списки пользователей и файлов");
+
+	//обновляю статусы
+	for (int i = 0; i < client_info.size(); i++)
+	{
+		string name = "user_" + to_string(client_info[i].name);
+		n status = client_info[i].status;
+		if (status == n::off)
+			name += "(off)";
+		else if (status == n::on)
+			name += "(on)";
+		else
+			name += "(server)";
+		while (users.size() <= client_info[i].name)
+			users.push_back("noname");
+		users[client_info[i].name] = name;
+	}
+
+	if (access.size() == 0)
+	{
+		vector<bool> buf;
+		for (int i = 0; i < files.size(); i++)
+			buf.push_back(true);
+		access.push_back(buf);
+	}
+
+	//проверяю доступность файлов
+	for (int i = 0; i < files.size(); i++)
+	{
+		ifstream file(mpath + files[i]);
+		if (file.is_open())
+		{
+			//файл доступен
+			file.close();
+		}
+		else
+		{
+			//файл недоступен
+			files.erase(files.begin() + i);
+			for (int j = 0; j < access.size(); j++)
+			{
+				access[j].erase(access[j].begin() + i);
+			}
+		}
+	}
+
+	//обновляю список доступных файлов для всех пользователей
+	for (int i = 1; i < client_info.size(); i++)
+	{
+		update_clientFiles(i);
+	}
+	isOutDated_Files = true;
+	isOutDated_Users = true;
+	pushLog("Списки пользователей и файлов обновлены");
+	ReleaseMutex(hMutex_Users_Files);
+	return true;
+}
+
+bool ServerInterLayer::sendFiles_Users(int id)
+{
+	update_clientFiles(id);
 	int i = 0;
 	while (i < client_info[id].files.size())
 	{
@@ -222,12 +284,9 @@ bool ServerInterLayer::sendFiles(int id)
 	}
 	strcpy(client_info[id].buff, "done");
 	send_buff(id);
-	return true;
-}
 
-bool ServerInterLayer::sendUsers(int id)
-{
-	int i = 0;
+
+	i = 0;
 	while (i < users.size())
 	{
 		bool end = false;
@@ -284,24 +343,57 @@ void ServerInterLayer::new_user(int name)
 	int size = users.size();
 	if (name > size)
 	{
-		;//как ты это сделал вообще? пропустил одно (или больше) имя клиента
+		//как ты это сделал вообще? пропустил одно (или больше) имя клиента
 		users.reserve(name + 1);
-		users[name] = users[0];
+		users[name] = "user" + to_string(name);
+		access.reserve(name + 1);
+		access[name] = access[0];
 		for (int i = size; i < name; i++)
 		{
-			users[i] = { -1 };//так как этого пользователя еще не добавляли
+			access[i] = {};//так как этого пользователя еще не добавляли
 		}
 	}
 	else if (size == name)
 	{
-		users.reserve(name + 1);
-		users[name] = users[0];
+		users.push_back("user_" + to_string(name) + " (on)");
+		access.push_back(access[0]);
 	}
 	else
 	{
-		;//а это тот запоздавший клиент
-		users[name] = users[0];
+		//а это тот запоздавший клиент
+		users.push_back("user" + to_string(name));
+		access[name] = access[0];
 	}
+	ReleaseMutex(hMutex_Users_Files);
+}
+
+void ServerInterLayer::new_file(string name)
+{
+	WaitForSingleObject(hMutex_Users_Files, INFINITE);
+	/*int size = users.size();
+	if (name > size)
+	{
+		//как ты это сделал вообще? пропустил одно (или больше) имя клиента
+		users.reserve(name + 1);
+		users[name] = "user" + to_string(name);
+		access.reserve(name + 1);
+		access[name] = access[0];
+		for (int i = size; i < name; i++)
+		{
+			access[i] = {};//так как этого пользователя еще не добавляли
+		}
+	}
+	else if (size == name)
+	{
+		users.push_back("user_" + to_string(name) + " (on)");
+		access.push_back(access[0]);
+	}
+	else
+	{
+		//а это тот запоздавший клиент
+		users.push_back("user" + to_string(name));
+		access[name] = access[0];
+	}*/
 	ReleaseMutex(hMutex_Users_Files);
 }
 
@@ -327,7 +419,9 @@ bool ServerInterLayer::save_backup()
 	pushLog("Записана резервная копия списка пользователей");
 
 	backup.open(mpath + "backup_access.txt", ios_base::out | ios_base::trunc);
-	backup << access.size() << endl << access[0].size();
+	backup << access.size();
+	if (access.size() > 0)
+		backup << endl << access[0].size();
 	for (int i = 0; i < access.size(); i++)
 	{
 		backup << endl;
@@ -424,13 +518,14 @@ bool ServerInterLayer::load_from_backup()
 				for (; j < size_f; j++)
 					f.push_back(atoi(buf));
 				access.push_back(f);
-				updateFiles(i);
+				update_clientFiles(i);
 				if (j < size_f)
 				{
 					error = true;
 					pushLog("Резервная копия таблицы доступа была нарушена: отсутствует метка файла");
 				}
 			}
+
 			backup.close();
 			pushLog("Загружена резервная копия таблицы доступа к файлам");
 			if (i < size_u)
@@ -447,12 +542,16 @@ bool ServerInterLayer::load_from_backup()
 	}
 	if (error)
 	{
-		;//по-хорошему, все надо почистить
+		files.clear();
+		users.clear();
+		access.clear();
+		pushLog("Из-за ошибки в резервной копии списки файлов и пользователей обнулены");
+
 	}
-	//открыть директорию и проверить файлы
 	isOutDated_Files = true;
 	isOutDated_Users = true;
 	ReleaseMutex(hMutex_Users_Files);
+	updateFiles_Users();
 	return true;
 }
 
