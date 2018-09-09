@@ -82,12 +82,13 @@ private:
 
 public:
 	void init();
-	bool updateFiles(int id);
-	bool sendFiles(int id);
-	bool sendUsers(int id);
+	bool update_clientFiles(int id);
+	bool updateFiles_Users();
+	bool sendFiles_Users(int id);
 	int send_buff(int id);
 	int receive(int id);
 	void new_user(int name);
+	void new_file(string name);
 	bool save_backup();
 	bool load_from_backup();
 	int Exit();
