@@ -186,11 +186,19 @@ DWORD WINAPI WorkWithClient(LPVOID param)
 
 bool ServerInterLayer::update_clientFiles(int id)
 {
-	client_info[id].files.clear();
+	vector<string> mas;
 	for (int i = 0; i < access[id].size(); i++)
 	{
 		if (access[id][i])
-			client_info[id].files.push_back(files[i]);
+			mas.push_back(files[i]);
+	}
+	for (int j = 0; j < client_info.size(); j++)
+	{
+		if (client_info[j].name == id)
+		{
+			client_info[j].files.clear();
+			client_info[j].files = mas;
+		}
 	}
 	return true;
 }
@@ -334,6 +342,7 @@ void ServerInterLayer::quit_client(int id)
 {
 	//закрываю поток работы с клиентом
 	client_info[id].status = n::off;
+	updateFiles_Users();
 	ExitThread(0);
 }
 
