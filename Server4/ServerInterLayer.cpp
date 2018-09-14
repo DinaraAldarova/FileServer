@@ -13,14 +13,16 @@ ServerInterLayer::ServerInterLayer()
 }
 DWORD WINAPI initialize(LPVOID param);
 DWORD WINAPI WorkWithClient(LPVOID param);
-void ServerInterLayer::init()
+bool ServerInterLayer::init()
 {
 	server = this;
 	DWORD thID;
 	CreateThread(NULL, NULL, initialize, NULL, NULL, &thID);
+	return true;
 }
 DWORD WINAPI initialize(LPVOID param)
 {
+	server->pushLog("Запуск сервера");
 	info host_info;
 	host_info.name = 0;
 	if (WSAStartup(0x202, (WSADATA *)&(host_info.buff[0])) != 0)
@@ -70,13 +72,16 @@ DWORD WINAPI initialize(LPVOID param)
 	}
 	host_info.status = n::server;
 	host_info.stream = GetCurrentThread();
-	server->mpath = "D:\\Server\\";
+	server->path = "D:\\Server\\";
 	host_info.sock = server_socket;
 	server->IPv4 = inet_ntoa(*((in_addr*)lphost->h_addr_list[0]));
 	EnterCriticalSection(&(server->cs_info));
 	server->client_info.push_back(host_info);
 	LeaveCriticalSection(&(server->cs_info));
 	server->setStatus(s::working);
+	server->pushLog("Сервер запущен");
+
+	server->load_from_backup();
 
 	//Извлечение запросов на подключение из очереди
 	while (server->setClient_socket(accept(server_socket, NULL, NULL)) != INVALID_SOCKET)
@@ -114,12 +119,14 @@ int ServerInterLayer::new_name()
 int ServerInterLayer::Exit()
 {
 	//почистить сокеты?
+	save_backup();
 	for each (info user in client_info)
 	{
 		closesocket(user.sock);
 	}
 	WSACleanup();
 	server->setStatus(s::error);
+	pushLog("Сервер отключен/n");
 	return 0;
 }
 
@@ -137,23 +144,26 @@ DWORD WINAPI WorkWithClient(LPVOID param)
 		//новый логин
 		EnterCriticalSection(&server->cs_info);
 		server->client_info[id].name = server->new_name();
-		LeaveCriticalSection(&server->cs_info);
 		itoa(server->client_info[id].name, server->client_info[id].buff, 10);
+		LeaveCriticalSection(&server->cs_info);
 		server->send_buff(id);
 		server->new_user(id);
 	}
 	else if (int num = atoi(server->client_info[id].buff) > 0)
 	{
 		//это клиент с именем num, зарегать его
+		EnterCriticalSection(&server->cs_info);
 		server->client_info[id].name = num;
 		strcpy(server->client_info[id].buff, "done");
+		LeaveCriticalSection(&server->cs_info);
 		server->send_buff(id);
+		server->updateFiles_Users();
 	}
 	else
 	{
 		server->pushLog("Прислано что-то неверное");
+		server->quit_client(id);
 	}
-	server->isOutDated_Users = true;
 
 	bool work = true;
 	while (work)
@@ -161,13 +171,13 @@ DWORD WINAPI WorkWithClient(LPVOID param)
 		server->receive(id);
 		if (strcmp(server->client_info[id].buff, "pause") == 0)
 		{
-			server->client_info[id].status = n::off;
-			//пока не дописала
+			server->pushLog(server->getUsers()[server->client_info[id].name] + " pause");
+			server->quit_client(id);
 		}
 		else if (strcmp(server->client_info[id].buff, "logout") == 0)
 		{
-			server->pushLog("вышел");
-			//еще не написала
+			server->pushLog(server->getUsers()[server->client_info[id].name] + " logout");
+			server->quit_client(id);
 		}
 		else if (strcmp(server->client_info[id].buff, "update") == 0)
 		{
@@ -177,29 +187,34 @@ DWORD WINAPI WorkWithClient(LPVOID param)
 
 
 
+
+
+
+
 	}
-
-
-
 	return 0;
 }
 
 bool ServerInterLayer::update_clientFiles(int id)
 {
 	vector<string> mas;
-	for (int i = 0; i < access[id].size(); i++)
+	WaitForSingleObject(hMutex_Users_Files, INFINITE);
+	EnterCriticalSection(&server->cs_info);
+	for (int i = 0; i < access[client_info[id].name].size(); i++)
 	{
-		if (access[id][i])
+		if (access[client_info[id].name][i])
 			mas.push_back(files[i]);
 	}
 	for (int j = 0; j < client_info.size(); j++)
 	{
-		if (client_info[j].name == id)
+		if (client_info[j].name == client_info[id].name)
 		{
 			client_info[j].files.clear();
 			client_info[j].files = mas;
 		}
 	}
+	LeaveCriticalSection(&server->cs_info);
+	ReleaseMutex(hMutex_Users_Files);
 	return true;
 }
 
@@ -235,7 +250,7 @@ bool ServerInterLayer::updateFiles_Users()
 	//проверяю доступность файлов
 	for (int i = 0; i < files.size(); i++)
 	{
-		ifstream file(mpath + files[i]);
+		ifstream file(path + files[i]);
 		if (file.is_open())
 		{
 			//файл доступен
@@ -267,6 +282,7 @@ bool ServerInterLayer::updateFiles_Users()
 bool ServerInterLayer::sendFiles_Users(int id)
 {
 	update_clientFiles(id);
+	WaitForSingleObject(hMutex_Users_Files, INFINITE);
 	int i = 0;
 	while (i < client_info[id].files.size())
 	{
@@ -293,7 +309,6 @@ bool ServerInterLayer::sendFiles_Users(int id)
 	strcpy(client_info[id].buff, "done");
 	send_buff(id);
 
-
 	i = 0;
 	while (i < users.size())
 	{
@@ -319,11 +334,13 @@ bool ServerInterLayer::sendFiles_Users(int id)
 	}
 	strcpy(client_info[id].buff, "done");
 	send_buff(id);
+	ReleaseMutex(hMutex_Users_Files);
 	return true;
 }
 
 int ServerInterLayer::send_buff(int id)
 {
+	Sleep(50);
 	return send(client_info[id].sock, &client_info[id].buff[0], strlen(client_info[id].buff) + 1, 0);	//отправил команду
 }
 
@@ -338,15 +355,28 @@ int ServerInterLayer::receive(int id)
 	return res;
 }
 
-void ServerInterLayer::quit_client(int id)
+bool ServerInterLayer::quit_client(int id)
 {
 	//закрываю поток работы с клиентом
-	client_info[id].status = n::off;
+	HANDLE stream = GetCurrentThread();
+	int i = 0;
+	EnterCriticalSection(&cs_info);
+	while (client_info[i].stream != stream && i < client_info.size())
+		i++;
+	if (i == client_info.size())
+	{
+		pushLog("Ошибка! Попытка отключить клиента " + to_string(client_info[id].name) + " (порядковый номер " + to_string(id) + ": такой пользователь не существует");
+		return false;
+	}
+	pushLog(users.at(client_info[id].name) + "вышел");
+	client_info[i].status = n::off;
+	LeaveCriticalSection(&cs_info);
 	updateFiles_Users();
 	ExitThread(0);
+	return true;
 }
 
-void ServerInterLayer::new_user(int name)
+bool ServerInterLayer::new_user(int name)
 {
 	WaitForSingleObject(hMutex_Users_Files, INFINITE);
 	int size = users.size();
@@ -374,9 +404,11 @@ void ServerInterLayer::new_user(int name)
 		access[name] = access[0];
 	}
 	ReleaseMutex(hMutex_Users_Files);
+	updateFiles_Users();
+	return true;
 }
 
-void ServerInterLayer::new_file(string name)
+bool ServerInterLayer::new_file(string name)
 {
 	WaitForSingleObject(hMutex_Users_Files, INFINITE);
 	/*int size = users.size();
@@ -403,13 +435,17 @@ void ServerInterLayer::new_file(string name)
 		users.push_back("user" + to_string(name));
 		access[name] = access[0];
 	}*/
+
+	
 	ReleaseMutex(hMutex_Users_Files);
+	updateFiles_Users();
+	return true;
 }
 
 bool ServerInterLayer::save_backup()
 {
 	WaitForSingleObject(hMutex_Users_Files, INFINITE);
-	ofstream backup(mpath + "backup_files.txt", ios_base::out | ios_base::trunc);
+	ofstream backup(path + "backup_files.txt", ios_base::out | ios_base::trunc);
 	backup << files.size();
 	for (int i = 0; i < files.size(); i++)
 	{
@@ -418,7 +454,7 @@ bool ServerInterLayer::save_backup()
 	backup.close();
 	pushLog("Записана резервная копия списка файлов");
 
-	backup.open(mpath + "backup_users.txt", ios_base::out | ios_base::trunc);
+	backup.open(path + "backup_users.txt", ios_base::out | ios_base::trunc);
 	backup << users.size();
 	for (int i = 0; i < users.size(); i++)
 	{
@@ -427,7 +463,7 @@ bool ServerInterLayer::save_backup()
 	backup.close();
 	pushLog("Записана резервная копия списка пользователей");
 
-	backup.open(mpath + "backup_access.txt", ios_base::out | ios_base::trunc);
+	backup.open(path + "backup_access.txt", ios_base::out | ios_base::trunc);
 	backup << access.size();
 	if (access.size() > 0)
 		backup << endl << access[0].size();
@@ -448,7 +484,7 @@ bool ServerInterLayer::save_backup()
 bool ServerInterLayer::load_from_backup()
 {
 	WaitForSingleObject(hMutex_Users_Files, INFINITE);
-	ifstream backup(mpath + "backup_files.txt");
+	ifstream backup(path + "backup_files.txt");
 	char buf[50];
 	int s_files, s_users;
 	bool error = false;
@@ -477,7 +513,7 @@ bool ServerInterLayer::load_from_backup()
 		pushLog("Не удалось загрузить резервную копию списка файлов");
 	}
 
-	backup.open(mpath + "backup_users.txt");
+	backup.open(path + "backup_users.txt");
 	if (backup.is_open())
 	{
 		users.clear();
@@ -503,7 +539,7 @@ bool ServerInterLayer::load_from_backup()
 		pushLog("Не удалось загрузить резервную копию списка пользователей");
 	}
 
-	backup.open(mpath + "backup_access.txt");
+	backup.open(path + "backup_access.txt");
 	if (backup.is_open())
 	{
 		access.clear();
@@ -527,7 +563,6 @@ bool ServerInterLayer::load_from_backup()
 				for (; j < size_f; j++)
 					f.push_back(atoi(buf));
 				access.push_back(f);
-				update_clientFiles(i);
 				if (j < size_f)
 				{
 					error = true;
@@ -636,6 +671,8 @@ string ServerInterLayer::popLog()
 	WaitForSingleObject(hMutex_Log, INFINITE);
 	string s = this->log.front();
 	this->log.pop_front();
+	ofstream file(path + "log.txt", ios_base::app);
+	file << s << endl;
 	ReleaseMutex(hMutex_Log);
 	return s;
 }

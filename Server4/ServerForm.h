@@ -31,7 +31,6 @@ namespace Server4 {
 		/// </summary>
 		~ServerForm()
 		{
-			server.save_backup();
 			server.Exit();
 			if (components)
 			{
@@ -241,11 +240,11 @@ namespace Server4 {
 			Sleep(100);
 		}
 		label_IP->Text = gcnew String(server.IPv4.c_str());
-		server.load_from_backup();
-		update_info();
 	}
 	private: void update_info()
 	{
+		if (server.getStatus() == s::error)
+			this->Close();
 		if (server.isOutDated_Files)
 		{
 			//обновление списка доступных для скачивания файлов
