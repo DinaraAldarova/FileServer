@@ -40,15 +40,15 @@ private:
 public:
 	HOSTENT * hst;
 	string IPv4;
-	string mpath;
+	string path;
 	vector <info> client_info = {};
 	//Заменить на false, ставить true в проверке резервной копии данных
 	bool isOutDated_Users = true;
 	bool isOutDated_Files = true;
 	//Критическая секция для работы с client_info
 	CRITICAL_SECTION cs_info;
-	CRITICAL_SECTION cs_files;
-	CRITICAL_SECTION cs_users;
+	//CRITICAL_SECTION cs_files;
+	//CRITICAL_SECTION cs_users;
 #pragma endregion
 
 #pragma region Get- и set-методы
@@ -78,19 +78,20 @@ public:
 private:
 	//DWORD WINAPI initialize(LPVOID param);
 	//DWORD WINAPI WorkWithClient(LPVOID client_socket);
-	void quit_client(int id);
+	
 
 public:
-	void init();
+	bool init();
 	bool update_clientFiles(int id);
 	bool updateFiles_Users();
 	bool sendFiles_Users(int id);
 	int send_buff(int id);
 	int receive(int id);
-	void new_user(int name);
-	void new_file(string name);
+	bool new_user(int name);
+	bool new_file(string name);
 	bool save_backup();
 	bool load_from_backup();
+	bool quit_client(int id);
 	int Exit();
 
 #pragma endregion
