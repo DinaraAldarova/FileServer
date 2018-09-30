@@ -12,6 +12,7 @@ enum class s { error, working };
 enum class n { server, off, on };
 
 #define size_buff 4096
+#define size_block 10
 
 struct info
 {
@@ -22,6 +23,7 @@ struct info
 	SOCKET sock;
 	HANDLE mailslot;	
 	vector <string> files;
+	CRITICAL_SECTION cs_buf;
 };
 class ServerInterLayer
 {
@@ -87,8 +89,10 @@ public:
 	bool sendFiles_Users(int id);
 	int send_buff(int id);
 	int receive(int id);
-	bool new_user(int name);
-	bool new_file(string name);
+	bool new_user(int id);
+	bool new_file(string name, string f_access, vector <string> access_users);
+	bool uploadFile(int id);
+	bool downloadFile(int id);
 	bool save_backup();
 	bool load_from_backup();
 	bool quit_client(int id);
