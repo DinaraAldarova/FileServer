@@ -4,6 +4,7 @@
 #pragma comment( lib, "ws2_32.lib" )
 //#define client server->client_info[id]
 ServerInterLayer * server;
+
 ServerInterLayer::ServerInterLayer()
 {
 	InitializeCriticalSection(&cs_info);
@@ -11,8 +12,10 @@ ServerInterLayer::ServerInterLayer()
 	hMutex_Users_Files = CreateMutex(NULL, false, NULL);
 	init();
 }
+
 DWORD WINAPI initialize(LPVOID param);
 DWORD WINAPI WorkWithClient(LPVOID param);
+
 bool ServerInterLayer::init()
 {
 	server = this;
@@ -20,6 +23,7 @@ bool ServerInterLayer::init()
 	CreateThread(NULL, NULL, initialize, NULL, NULL, &thID);
 	return true;
 }
+
 DWORD WINAPI initialize(LPVOID param)
 {
 	server->pushLog("Запуск сервера");
@@ -104,16 +108,13 @@ DWORD WINAPI initialize(LPVOID param)
 
 int ServerInterLayer::new_name()
 {
-	int a = 0;
 	EnterCriticalSection(&cs_info);
-	for each (info user in client_info)
-	{
-		if (user.name > a)
-			a = user.name;
-	}
-	a++;
+	WaitForSingleObject(hMutex_Users_Files, INFINITE);
+	int i = 0;
+	for (; i < users.size() && users[i] != "noname"; i++);
+	ReleaseMutex(hMutex_Users_Files);
 	LeaveCriticalSection(&cs_info);
-	return a;
+	return i;
 }
 
 int ServerInterLayer::Exit()
@@ -136,9 +137,10 @@ DWORD WINAPI WorkWithClient(LPVOID param)
 	const int id = *num;
 	server->client_info[id].stream = GetCurrentThread();
 	server->client_info[id].status = n::on;
+	InitializeCriticalSection(&server->client_info[id].cs_buf);
 	//Добавить mailslot
 
-	server->receive(id);
+	if (server->receive(id) == -1) { server->quit_client(id); return false; }
 	if (strcmp(server->client_info[id].buff, "new") == 0)
 	{
 		//новый логин
@@ -148,27 +150,39 @@ DWORD WINAPI WorkWithClient(LPVOID param)
 		LeaveCriticalSection(&server->cs_info);
 		server->send_buff(id);
 		server->new_user(id);
-	}
-	else if (int num = atoi(server->client_info[id].buff) > 0)
-	{
-		//это клиент с именем num, зарегать его
-		EnterCriticalSection(&server->cs_info);
-		server->client_info[id].name = num;
-		strcpy(server->client_info[id].buff, "done");
-		LeaveCriticalSection(&server->cs_info);
-		server->send_buff(id);
-		server->updateFiles_Users();
+		server->pushLog(server->getUsers()[server->client_info[id].name] + " login");
 	}
 	else
 	{
-		server->pushLog("Прислано что-то неверное");
-		server->quit_client(id);
+		int num = atoi(server->client_info[id].buff);
+		if (num > 0)
+		{
+			//это клиент с именем num, зарегать его
+			EnterCriticalSection(&server->cs_info);
+			server->client_info[id].name = num;
+			if (num >= server->getUsers().size())
+			{
+				while (num > server->getUsers().size())
+					server->setUser("noname");
+				server->setUser("user_" + to_string(num) + "(on)");
+			}
+			strcpy(server->client_info[id].buff, "done");
+			LeaveCriticalSection(&server->cs_info);
+			server->send_buff(id);
+			server->updateFiles_Users();
+			server->pushLog(server->getUsers()[server->client_info[id].name] + " connected");
+		}
+		else
+		{
+			server->pushLog("Прислано что-то неверное");
+			server->quit_client(id);
+		}
 	}
 
 	bool work = true;
 	while (work)
 	{
-		server->receive(id);
+		if (server->receive(id) == -1) { server->quit_client(id); return false; }
 		if (strcmp(server->client_info[id].buff, "pause") == 0)
 		{
 			server->pushLog(server->getUsers()[server->client_info[id].name] + " pause");
@@ -183,7 +197,14 @@ DWORD WINAPI WorkWithClient(LPVOID param)
 		{
 			server->sendFiles_Users(id);
 		}
-
+		else if (strncmp(server->client_info[id].buff, "upload", 6) == 0)
+		{
+			server->uploadFile(id);
+		}
+		else if (strncmp(server->client_info[id].buff, "download", 8) == 0)
+		{
+			server->downloadFile(id);
+		}
 
 
 
@@ -200,16 +221,16 @@ bool ServerInterLayer::update_clientFiles(int id)
 	vector<string> mas;
 	WaitForSingleObject(hMutex_Users_Files, INFINITE);
 	EnterCriticalSection(&server->cs_info);
-	for (int i = 0; i < access[client_info[id].name].size(); i++)
+	int name = client_info[id].name;
+	for (int i = 0; i < access[name].size(); i++)
 	{
-		if (access[client_info[id].name][i])
+		if (access[name][i])
 			mas.push_back(files[i]);
 	}
 	for (int j = 0; j < client_info.size(); j++)
 	{
-		if (client_info[j].name == client_info[id].name)
+		if (client_info[j].name == name)
 		{
-			client_info[j].files.clear();
 			client_info[j].files = mas;
 		}
 	}
@@ -223,28 +244,73 @@ bool ServerInterLayer::updateFiles_Users()
 	WaitForSingleObject(hMutex_Users_Files, INFINITE);
 	pushLog("Обновляю списки пользователей и файлов");
 
-	//обновляю статусы
-	for (int i = 0; i < client_info.size(); i++)
+	if (users.size() != access.size() || users.size() == 0 || access.size() == 0)
 	{
-		string name = "user_" + to_string(client_info[i].name);
-		n status = client_info[i].status;
-		if (status == n::off)
-			name += "(off)";
-		else if (status == n::on)
-			name += "(on)";
+		pushLog("Количество пользователей рассинхронизировано, сбрасываю список пользователей");
+		
+		if (users.size() > 0)
+		{
+			string s = users[0];
+			users.clear();
+			users.push_back(s);
+		}
 		else
-			name += "(server)";
-		while (users.size() <= client_info[i].name)
-			users.push_back("noname");
-		users[client_info[i].name] = name;
+		{
+			users.push_back("user_0(server)");
+		}
+
+		if (access.size() > 0)
+		{
+			vector <bool> a = access[0];
+			access.clear();
+			access.push_back(a);
+		}
+		else
+		{
+			access.push_back({});
+			files.clear();
+		}
+	}
+	if (files.size() != access[0].size())
+	{
+		pushLog("Количество файлов рассинхронизировано, сбрасываю список файлов");
+
+		files.clear();
+		access[0].clear();
+	}
+	bool need_message = false;
+	for (int i = 1; i < access.size(); i++)
+	{
+		if (access[i].size() != access[0].size())
+		{
+			need_message = true;
+
+			access[i] = access[0];
+		}
 	}
 
-	if (access.size() == 0)
+	if (need_message)
+		pushLog("Таблица доуступа рассинхронизирована, сбрасываю ее");
+
+	//обновляю статусы
+	for (int id = 0; id < client_info.size(); id++)
 	{
-		vector<bool> buf;
-		for (int i = 0; i < files.size(); i++)
-			buf.push_back(true);
-		access.push_back(buf);
+		int name = client_info[id].name;
+
+		string str_name = "user_" + to_string(name);
+		n status = client_info[id].status;
+		if (status == n::off)
+			str_name += "(off)";
+		else if (status == n::on)
+			str_name += "(on)";
+		else
+			str_name += "(server)";
+		while (users.size() <= name)
+		{
+			users.push_back("noname");
+			access.push_back(access[0]);
+		}
+		users[name] = str_name;
 	}
 
 	//проверяю доступность файлов
@@ -340,18 +406,24 @@ bool ServerInterLayer::sendFiles_Users(int id)
 
 int ServerInterLayer::send_buff(int id)
 {
+	EnterCriticalSection(&client_info[id].cs_buf);
 	Sleep(50);
-	return send(client_info[id].sock, &client_info[id].buff[0], strlen(client_info[id].buff) + 1, 0);	//отправил команду
+	int i = send(client_info[id].sock, &client_info[id].buff[0], strlen(client_info[id].buff) + 1, 0);	//отправил команду 
+	LeaveCriticalSection(&client_info[id].cs_buf);
+	return i;
 }
 
 int ServerInterLayer::receive(int id)
 {
-	int res;
-	if (res = recv(client_info[id].sock, &client_info[id].buff[0], sizeof(client_info[id].buff), 0) == SOCKET_ERROR)
+	EnterCriticalSection(&client_info[id].cs_buf);
+	int res = recv(client_info[id].sock, &client_info[id].buff[0], sizeof(client_info[id].buff), 0);
+	if (res == SOCKET_ERROR)
 	{
 		//ошибка сокета!
-		quit_client(id);
+		LeaveCriticalSection(&client_info[id].cs_buf);
+		//quit_client(id);
 	}
+	LeaveCriticalSection(&client_info[id].cs_buf);
 	return res;
 }
 
@@ -359,48 +431,47 @@ bool ServerInterLayer::quit_client(int id)
 {
 	//закрываю поток работы с клиентом
 	HANDLE stream = GetCurrentThread();
-	int i = 0;
 	EnterCriticalSection(&cs_info);
-	while (client_info[i].stream != stream && i < client_info.size())
-		i++;
-	if (i == client_info.size())
+	if (id >= client_info.size() || client_info[id].stream != stream)
 	{
 		pushLog("Ошибка! Попытка отключить клиента " + to_string(client_info[id].name) + " (порядковый номер " + to_string(id) + ": такой пользователь не существует");
 		return false;
 	}
 	pushLog(users.at(client_info[id].name) + "вышел");
-	client_info[i].status = n::off;
+	client_info[id].status = n::off;
 	LeaveCriticalSection(&cs_info);
 	updateFiles_Users();
 	ExitThread(0);
 	return true;
 }
 
-bool ServerInterLayer::new_user(int name)
+bool ServerInterLayer::new_user(int id)
 {
 	WaitForSingleObject(hMutex_Users_Files, INFINITE);
-	int size = users.size();
-	if (name > size)
+	int name = client_info[id].name;
+	if (users.size() != access.size())
 	{
-		//как ты это сделал вообще? пропустил одно (или больше) имя клиента
-		users.reserve(name + 1);
-		users[name] = "user" + to_string(name);
-		access.reserve(name + 1);
-		access[name] = access[0];
-		for (int i = size; i < name; i++)
-		{
-			access[i] = {};//так как этого пользователя еще не добавляли
-		}
+		pushLog("Списки пользователей и доступа рассинхронизированы");
+		ReleaseMutex(hMutex_Users_Files);
+		updateFiles_Users();
+		WaitForSingleObject(hMutex_Users_Files, INFINITE);
 	}
-	else if (size == name)
+	while (name > users.size())
 	{
+		//если клиент забежал
+		users.push_back("noname");
+		access.push_back(access[0]);
+	}
+	if (name == users.size())
+	{
+		//все ок
 		users.push_back("user_" + to_string(name) + " (on)");
 		access.push_back(access[0]);
 	}
 	else
 	{
-		//а это тот запоздавший клиент
-		users.push_back("user" + to_string(name));
+		//а это запоздавший клиент
+		users[name] = "user_" + to_string(name) + " (on)";
 		access[name] = access[0];
 	}
 	ReleaseMutex(hMutex_Users_Files);
@@ -408,7 +479,7 @@ bool ServerInterLayer::new_user(int name)
 	return true;
 }
 
-bool ServerInterLayer::new_file(string name)
+bool ServerInterLayer::new_file(string name, string f_access, vector <string> access_users)
 {
 	WaitForSingleObject(hMutex_Users_Files, INFINITE);
 	/*int size = users.size();
@@ -436,9 +507,127 @@ bool ServerInterLayer::new_file(string name)
 		access[name] = access[0];
 	}*/
 
-	
+
 	ReleaseMutex(hMutex_Users_Files);
 	updateFiles_Users();
+	return true;
+}
+
+bool ServerInterLayer::uploadFile(int id)
+{
+	WaitForSingleObject(hMutex_Users_Files, INFINITE);
+	int i = 7;
+	string s = "";
+	while (client_info[id].buff[i] != '|')
+	{
+		s += client_info[id].buff[i];
+		i++;
+	}
+	string name = s;
+	i++;
+	s = "";
+	while (client_info[id].buff[i] != '|')
+	{
+		s += client_info[id].buff[i];
+		i++;
+	}
+	string f_access = s;
+	vector<string> access_users = {};
+	if (f_access == "protected")
+	{
+		while (client_info[id].buff[i] != '*')
+		{
+			s = "";
+			while (client_info[id].buff[i] != '|')
+			{
+				s += client_info[id].buff[i];
+				i++;
+			}
+			access_users.push_back(s);
+			i++;
+		}
+	}
+	FILE * file;
+	file = fopen((path + name).c_str(), "wb+");
+	if (file == NULL)
+	{
+		pushLog("Ошибка! Файл невозможно создать. Получение невозможно");
+		strcpy(client_info[id].buff, "error");
+		ReleaseMutex(hMutex_Users_Files);
+		return false;
+	}
+
+	strcpy(client_info[id].buff, "ready");
+	send_buff(id);
+
+	if (receive(id) == -1) { pushLog("Ошибка сокета, загрузка прервана"); fclose(file); ReleaseMutex(hMutex_Users_Files); quit_client(id); return false; }
+	long size_file = atol(client_info[id].buff);
+	if (size_file == 0) { pushLog("Клиент прислал не размер файла, загрузка прервана"); fclose(file); ReleaseMutex(hMutex_Users_Files); return false; }
+
+	char buff_2[size_buff] = "";
+
+	for (long pos = 0; pos < size_file; )
+	{
+		if (receive(id) == -1) { pushLog("Ошибка сокета, загрузка прервана"); fclose(file); ReleaseMutex(hMutex_Users_Files); quit_client(id); return false; }
+		strcpy(buff_2, client_info[id].buff);
+		//потом заменить на вычисление контрольной суммы
+		strcpy(client_info[id].buff, "ok");
+		send_buff(id);
+
+		if (receive(id) == -1) { pushLog("Ошибка сокета, загрузка прервана"); fclose(file); ReleaseMutex(hMutex_Users_Files); quit_client(id); return false; }
+		
+		if (client_info[id].buff[0] == '/0')
+		{
+			client_info[id].buff[0] = '_';
+		}
+		if (!strcmp(client_info[id].buff, "next") || !strcmp(client_info[id].buff, "_next"))
+			//загружаем следующий блок
+		{
+			fwrite(&buff_2, sizeof(buff_2), 1, file);
+			pos += sizeof(buff_2);
+			strcpy(client_info[id].buff, "next");
+		}
+		else if (!strcmp(client_info[id].buff, "repeat"))
+			//повторить загрузку блока
+			strcpy(client_info[id].buff, "repeat");
+		else
+			//загружено что-то еще
+		{
+			pushLog("Клиент ответил отрицательно, загрузка прервана"); fclose(file); ReleaseMutex(hMutex_Users_Files); return false;
+		}
+
+		send_buff(id);
+	}
+	fclose(file);
+	if (receive(id) == -1) { pushLog("Ошибка сокета после загрузки файла"); ReleaseMutex(hMutex_Users_Files); quit_client(id); return false; }
+	if (!strcmp(client_info[id].buff, "end"))
+	{
+		pushLog("Файл загружен");
+		strcpy(client_info[id].buff, "end");
+		send_buff(id);
+		ReleaseMutex(hMutex_Users_Files);
+		//добавит в структуры данных этот файл, но функция еще не дописана
+		//к тому же, функция update нуждается в изменении: она проверит,
+		//что файл не открывается, и удалит его
+		new_file(name, f_access, access_users);
+		return true;
+	}
+	else
+	{
+		pushLog("Клиент отправил ошибку после загрузки файла");
+		strcpy(client_info[id].buff, "error");
+		send_buff(id);
+		ReleaseMutex(hMutex_Users_Files);
+		return false;
+	}
+}
+
+bool ServerInterLayer::downloadFile(int id)
+{
+	WaitForSingleObject(hMutex_Users_Files, INFINITE);
+
+
+	ReleaseMutex(hMutex_Users_Files);
 	return true;
 }
 
@@ -604,10 +793,12 @@ s ServerInterLayer::getStatus()
 {
 	return this->status;
 }
+
 void ServerInterLayer::setStatus(s new_status)
 {
 	this->status = new_status;
 }
+
 vector<string> ServerInterLayer::getFiles()
 {
 	WaitForSingleObject(hMutex_Users_Files, INFINITE);
@@ -616,56 +807,57 @@ vector<string> ServerInterLayer::getFiles()
 	ReleaseMutex(hMutex_Users_Files);
 	return res;
 }
+
 void ServerInterLayer::setFile(string new_file)
 {
 	WaitForSingleObject(hMutex_Users_Files, INFINITE);
 	this->files.push_back(new_file);
 	ReleaseMutex(hMutex_Users_Files);
 }
+
 vector<string> ServerInterLayer::getUsers()
 {
 	WaitForSingleObject(hMutex_Users_Files, INFINITE);
-	vector<string> mas = { " (server)", " (off)", " (on)" };
-	vector<string> res = {};
-	for each (info user in client_info)
-	{
-		res.push_back("user_" + std::to_string(user.name) + mas.at((int)user.status));
-	}
-	this->users.clear();
-	users = res;
-	isOutDated_Users = false;
+	vector<string> res = users;
 	ReleaseMutex(hMutex_Users_Files);
 	return res;
 }
+
 void ServerInterLayer::setUser(string new_user)
 {
 	WaitForSingleObject(hMutex_Users_Files, INFINITE);
 	this->users.push_back(new_user);
 	ReleaseMutex(hMutex_Users_Files);
 }
+
 void ServerInterLayer::setClient_info(info new_client_info)
 {
 	this->client_info.push_back(new_client_info);
 }
+
 SOCKET ServerInterLayer::getClient_socket()
 {
 	return this->client_socket;
 }
+
 SOCKET ServerInterLayer::setClient_socket(SOCKET new_client_socket)
 {
 	this->client_socket = new_client_socket;
 	return new_client_socket;
 }
+
 u_short ServerInterLayer::getPort()
 {
 	return this->port;
 }
+
 void ServerInterLayer::pushLog(string message)
 {
 	WaitForSingleObject(hMutex_Log, INFINITE);
 	this->log.push_back(message);
 	ReleaseMutex(hMutex_Log);
 }
+
 string ServerInterLayer::popLog()
 {
 	WaitForSingleObject(hMutex_Log, INFINITE);
@@ -676,6 +868,7 @@ string ServerInterLayer::popLog()
 	ReleaseMutex(hMutex_Log);
 	return s;
 }
+
 bool ServerInterLayer::Log_isEmpty()
 {
 	return this->log.empty();

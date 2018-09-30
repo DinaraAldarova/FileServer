@@ -49,7 +49,8 @@ namespace Server4 {
 	private: System::Windows::Forms::TabPage^  tabPage3;
 
 	private: System::Windows::Forms::GroupBox^  groupBoxIP;
-	private: System::Windows::Forms::Label^  label_Log;
+	private: System::Windows::Forms::TextBox^  textBoxLog;
+
 
 
 	private: System::ComponentModel::IContainer^  components;
@@ -75,7 +76,7 @@ namespace Server4 {
 				 this->tabPage1 = (gcnew System::Windows::Forms::TabPage());
 				 this->tabPage2 = (gcnew System::Windows::Forms::TabPage());
 				 this->tabPage3 = (gcnew System::Windows::Forms::TabPage());
-				 this->label_Log = (gcnew System::Windows::Forms::Label());
+				 this->textBoxLog = (gcnew System::Windows::Forms::TextBox());
 				 this->groupBoxIP = (gcnew System::Windows::Forms::GroupBox());
 				 this->tabControl1->SuspendLayout();
 				 this->tabPage1->SuspendLayout();
@@ -181,7 +182,7 @@ namespace Server4 {
 				 // 
 				 // tabPage3
 				 // 
-				 this->tabPage3->Controls->Add(this->label_Log);
+				 this->tabPage3->Controls->Add(this->textBoxLog);
 				 this->tabPage3->Location = System::Drawing::Point(4, 22);
 				 this->tabPage3->Name = L"tabPage3";
 				 this->tabPage3->Padding = System::Windows::Forms::Padding(3);
@@ -190,13 +191,16 @@ namespace Server4 {
 				 this->tabPage3->Text = L"Сообщения";
 				 this->tabPage3->UseVisualStyleBackColor = true;
 				 // 
-				 // label_Log
+				 // textBoxLog
 				 // 
-				 this->label_Log->Dock = System::Windows::Forms::DockStyle::Fill;
-				 this->label_Log->Location = System::Drawing::Point(3, 3);
-				 this->label_Log->Name = L"label_Log";
-				 this->label_Log->Size = System::Drawing::Size(323, 167);
-				 this->label_Log->TabIndex = 2;
+				 this->textBoxLog->BackColor = System::Drawing::SystemColors::Window;
+				 this->textBoxLog->Dock = System::Windows::Forms::DockStyle::Fill;
+				 this->textBoxLog->Location = System::Drawing::Point(3, 3);
+				 this->textBoxLog->Multiline = true;
+				 this->textBoxLog->Name = L"textBoxLog";
+				 this->textBoxLog->ReadOnly = true;
+				 this->textBoxLog->Size = System::Drawing::Size(323, 167);
+				 this->textBoxLog->TabIndex = 0;
 				 // 
 				 // groupBoxIP
 				 // 
@@ -226,6 +230,7 @@ namespace Server4 {
 				 this->tabPage1->ResumeLayout(false);
 				 this->tabPage2->ResumeLayout(false);
 				 this->tabPage3->ResumeLayout(false);
+				 this->tabPage3->PerformLayout();
 				 this->groupBoxIP->ResumeLayout(false);
 				 this->groupBoxIP->PerformLayout();
 				 this->ResumeLayout(false);
@@ -271,12 +276,12 @@ namespace Server4 {
 		}
 		while (!server.Log_isEmpty())
 		{
-			label_Log->Text += gcnew String((server.popLog() + "\n").c_str());
+			textBoxLog->Text += gcnew String((server.popLog()).c_str()) + Environment::NewLine;
 		}
 	}
-	private: System::Void tabControl1_Click(System::Object^  sender, System::EventArgs^  e) 
+	private: System::Void tabControl1_Click(System::Object^  sender, System::EventArgs^  e)
 	{
 		update_info();
 	}
-};
+	};
 }
