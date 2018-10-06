@@ -1,5 +1,6 @@
 #include <Windows.h>
 #include <cstring>
+#include <algorithm>  // sort
 #include "ServerInterLayer.h"
 #pragma comment( lib, "ws2_32.lib" )
 //#define client server->client_info[id]
@@ -247,7 +248,7 @@ bool ServerInterLayer::updateFiles_Users()
 	if (users.size() != access.size() || users.size() == 0 || access.size() == 0)
 	{
 		pushLog("Количество пользователей рассинхронизировано, сбрасываю список пользователей");
-		
+
 		if (users.size() > 0)
 		{
 			string s = users[0];
@@ -416,13 +417,9 @@ int ServerInterLayer::send_buff(int id)
 int ServerInterLayer::receive(int id)
 {
 	EnterCriticalSection(&client_info[id].cs_buf);
+	for (int i = 0; i < size_buff; i++)
+		client_info[id].buff[i] = '/0';
 	int res = recv(client_info[id].sock, &client_info[id].buff[0], sizeof(client_info[id].buff), 0);
-	if (res == SOCKET_ERROR)
-	{
-		//ошибка сокета!
-		LeaveCriticalSection(&client_info[id].cs_buf);
-		//quit_client(id);
-	}
 	LeaveCriticalSection(&client_info[id].cs_buf);
 	return res;
 }
@@ -437,7 +434,7 @@ bool ServerInterLayer::quit_client(int id)
 		pushLog("Ошибка! Попытка отключить клиента " + to_string(client_info[id].name) + " (порядковый номер " + to_string(id) + ": такой пользователь не существует");
 		return false;
 	}
-	pushLog(users.at(client_info[id].name) + "вышел");
+	pushLog(users.at(client_info[id].name) + " вышел");
 	client_info[id].status = n::off;
 	LeaveCriticalSection(&cs_info);
 	updateFiles_Users();
@@ -479,34 +476,79 @@ bool ServerInterLayer::new_user(int id)
 	return true;
 }
 
-bool ServerInterLayer::new_file(string name, string f_access, vector <string> access_users)
+int ServerInterLayer::new_loading_file(string name, string f_access, vector <string> access_users, int id)
 {
-	WaitForSingleObject(hMutex_Users_Files, INFINITE);
-	/*int size = users.size();
-	if (name > size)
+	//WaitForSingleObject(hMutex_Users_Files, INFINITE);
+
+	loading_files newfile;
+	newfile.name = name;
+	newfile.f_access = f_access;
+	if (f_access == "private")
 	{
-		//как ты это сделал вообще? пропустил одно (или больше) имя клиента
-		users.reserve(name + 1);
-		users[name] = "user" + to_string(name);
-		access.reserve(name + 1);
-		access[name] = access[0];
-		for (int i = size; i < name; i++)
+		newfile.access_users.push_back(client_info[id].name);
+	}
+	else if (f_access == "protected")
+	{
+		for (int i = 0; i < access_users.size(); i++)
 		{
-			access[i] = {};//так как этого пользователя еще не добавляли
+			string num = "";
+			for (int j = 0; j < access_users[i].length(); j++)
+				if (access_users[i][j] >= '0' && access_users[i][j] <= '9')
+					num += access_users[i][j];
+			newfile.access_users.push_back(stoi(num));
+		}
+		if (!newfile.access_users.empty())
+			sort(newfile.access_users.begin(), newfile.access_users.end());
+	}
+
+	int res = loading.size();
+	loading.push_back(newfile);
+
+	//ReleaseMutex(hMutex_Users_Files);
+	return res;
+}
+
+bool ServerInterLayer::new_file(string name, string f_access, vector <int> access_users)
+{
+	updateFiles_Users();
+	WaitForSingleObject(hMutex_Users_Files, INFINITE);
+
+	vector <bool> vec;
+	if (f_access == "private")
+	{
+		for (int i = 0; i < users.size(); i++)
+		{
+			vec.push_back(false);
+		}
+		vec[access_users[0]] = true;
+	}
+	else if (f_access == "public")
+	{
+		for (int i = 0; i < users.size(); i++)
+		{
+			vec.push_back(true);
 		}
 	}
-	else if (size == name)
+	else if (f_access == "protected")
 	{
-		users.push_back("user_" + to_string(name) + " (on)");
-		access.push_back(access[0]);
+		int j = 0;
+		for (int u = 0; u < users.size(); u++)
+		{
+			vec.push_back(false);
+		}
+		for (int u = 0; u < access_users.size(); u++)
+		{
+			vec[access_users[u]] = true;
+		}
 	}
 	else
 	{
-		//а это тот запоздавший клиент
-		users.push_back("user" + to_string(name));
-		access[name] = access[0];
-	}*/
+		pushLog("Неправильный тип доступа: " + f_access);
+	}
 
+	users.push_back(name);
+	for (int i = 0; i < access.size(); i++)
+		access[i].push_back(vec[i]);
 
 	ReleaseMutex(hMutex_Users_Files);
 	updateFiles_Users();
@@ -547,12 +589,16 @@ bool ServerInterLayer::uploadFile(int id)
 			i++;
 		}
 	}
+	//добавить дозагрузку файла
+	int id_file = new_loading_file(name, f_access, access_users, id);
+
 	FILE * file;
 	file = fopen((path + name).c_str(), "wb+");
 	if (file == NULL)
 	{
 		pushLog("Ошибка! Файл невозможно создать. Получение невозможно");
 		strcpy(client_info[id].buff, "error");
+		send_buff(id);
 		ReleaseMutex(hMutex_Users_Files);
 		return false;
 	}
@@ -575,8 +621,8 @@ bool ServerInterLayer::uploadFile(int id)
 		send_buff(id);
 
 		if (receive(id) == -1) { pushLog("Ошибка сокета, загрузка прервана"); fclose(file); ReleaseMutex(hMutex_Users_Files); quit_client(id); return false; }
-		
-		if (client_info[id].buff[0] == '/0')
+
+		if (client_info[id].buff[0] == '\0')
 		{
 			client_info[id].buff[0] = '_';
 		}
@@ -606,10 +652,8 @@ bool ServerInterLayer::uploadFile(int id)
 		strcpy(client_info[id].buff, "end");
 		send_buff(id);
 		ReleaseMutex(hMutex_Users_Files);
-		//добавит в структуры данных этот файл, но функция еще не дописана
-		//к тому же, функция update нуждается в изменении: она проверит,
-		//что файл не открывается, и удалит его
-		new_file(name, f_access, access_users);
+
+		new_file(loading[id_file].name, loading[id_file].f_access, loading[id_file].access_users);
 		return true;
 	}
 	else
