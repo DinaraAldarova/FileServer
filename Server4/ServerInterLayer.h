@@ -21,9 +21,15 @@ struct info
 	char buff[size_buff] = "";
 	HANDLE stream; //где идет работа с клиентом, обработка входа/выхода
 	SOCKET sock;
-	HANDLE mailslot;	
+	HANDLE mailslot;
 	vector <string> files;
 	CRITICAL_SECTION cs_buf;
+};
+struct loading_files
+{
+	string name;
+	string f_access;
+	vector<int> access_users;
 };
 class ServerInterLayer
 {
@@ -35,7 +41,8 @@ private:
 	list <string> log;
 	vector <string> files;
 	vector <string> users;
-	vector<vector<bool>> access;
+	vector <vector<bool>> access;
+	vector <loading_files> loading;
 	HANDLE hMutex_Log;
 	HANDLE hMutex_Users_Files;
 
@@ -49,8 +56,6 @@ public:
 	bool isOutDated_Files = true;
 	//Критическая секция для работы с client_info
 	CRITICAL_SECTION cs_info;
-	//CRITICAL_SECTION cs_files;
-	//CRITICAL_SECTION cs_users;
 #pragma endregion
 
 #pragma region Get- и set-методы
@@ -80,7 +85,7 @@ public:
 private:
 	//DWORD WINAPI initialize(LPVOID param);
 	//DWORD WINAPI WorkWithClient(LPVOID client_socket);
-	
+
 
 public:
 	bool init();
@@ -90,7 +95,8 @@ public:
 	int send_buff(int id);
 	int receive(int id);
 	bool new_user(int id);
-	bool new_file(string name, string f_access, vector <string> access_users);
+	bool new_file(string name, string f_access, vector <int> access_users);
+	int new_loading_file(string name, string f_access, vector <string> access_users, int id);
 	bool uploadFile(int id);
 	bool downloadFile(int id);
 	bool save_backup();
