@@ -6,7 +6,6 @@ using namespace System::Windows::Forms;
 
 [STAThread]
 void main() {
-	setlocale(LC_ALL, "rus");
 	Application::EnableVisualStyles();
 	Application::SetCompatibleTextRenderingDefault(false);
 

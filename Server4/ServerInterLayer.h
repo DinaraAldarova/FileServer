@@ -12,6 +12,7 @@ enum class s { error, working };
 enum class n { server, off, on };
 
 #define size_buff 4096
+#define size_block 10
 
 struct info
 {
@@ -20,8 +21,15 @@ struct info
 	char buff[size_buff] = "";
 	HANDLE stream; //где идет работа с клиентом, обработка входа/выхода
 	SOCKET sock;
-	HANDLE mailslot;	
+	HANDLE mailslot;
 	vector <string> files;
+	CRITICAL_SECTION cs_buf;
+};
+struct loading_files
+{
+	string name;
+	string f_access;
+	vector<int> access_users;
 };
 class ServerInterLayer
 {
@@ -33,22 +41,21 @@ private:
 	list <string> log;
 	vector <string> files;
 	vector <string> users;
-	vector<vector<bool>> access;
+	vector <vector<bool>> access;
+	vector <loading_files> loading;
 	HANDLE hMutex_Log;
 	HANDLE hMutex_Users_Files;
 
 public:
 	HOSTENT * hst;
 	string IPv4;
-	string mpath;
+	string path;
 	vector <info> client_info = {};
 	//«аменить на false, ставить true в проверке резервной копии данных
 	bool isOutDated_Users = true;
 	bool isOutDated_Files = true;
 	// ритическа€ секци€ дл€ работы с client_info
 	CRITICAL_SECTION cs_info;
-	CRITICAL_SECTION cs_files;
-	CRITICAL_SECTION cs_users;
 #pragma endregion
 
 #pragma region Get- и set-методы
@@ -58,6 +65,7 @@ private:
 public:
 	int new_name();
 	ServerInterLayer();
+	~ServerInterLayer();
 	s getStatus();
 	void setStatus(s new_status);
 	vector<string> getFiles();
@@ -78,18 +86,23 @@ public:
 private:
 	//DWORD WINAPI initialize(LPVOID param);
 	//DWORD WINAPI WorkWithClient(LPVOID client_socket);
-	void quit_client(int id);
+
 
 public:
-	void init();
-	bool updateFiles(int id);
-	bool sendFiles(int id);
-	bool sendUsers(int id);
-	int send_buff(int id);
+	bool init();
+	bool update_clientFiles(int id);
+	bool updateFiles_Users();
+	bool sendFiles_Users(int id);
+	int send_buff(int id, int i = size_buff);
 	int receive(int id);
-	void new_user(int name);
+	bool new_user(int id);
+	bool new_file(int id);
+	int new_loading_file(string name, string f_access, vector <string> access_users, int id);
+	bool uploadFile(int id);
+	bool downloadFile(int id);
 	bool save_backup();
 	bool load_from_backup();
+	bool quit_client(int id);
 	int Exit();
 
 #pragma endregion
