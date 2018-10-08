@@ -65,6 +65,7 @@ private:
 public:
 	int new_name();
 	ServerInterLayer();
+	~ServerInterLayer();
 	s getStatus();
 	void setStatus(s new_status);
 	vector<string> getFiles();
@@ -92,10 +93,10 @@ public:
 	bool update_clientFiles(int id);
 	bool updateFiles_Users();
 	bool sendFiles_Users(int id);
-	int send_buff(int id);
+	int send_buff(int id, int i = size_buff);
 	int receive(int id);
 	bool new_user(int id);
-	bool new_file(string name, string f_access, vector <int> access_users);
+	bool new_file(int id);
 	int new_loading_file(string name, string f_access, vector <string> access_users, int id);
 	bool uploadFile(int id);
 	bool downloadFile(int id);
