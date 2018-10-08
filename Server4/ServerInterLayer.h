@@ -12,6 +12,7 @@ enum class s { error, working };
 enum class n { server, off, on };
 
 #define size_buff 4096
+#define size_block 10
 
 struct info
 {
@@ -22,6 +23,7 @@ struct info
 	SOCKET sock;
 	HANDLE mailslot;	
 	vector <string> files;
+	CRITICAL_SECTION cs_buf;
 };
 class ServerInterLayer
 {
@@ -40,15 +42,15 @@ private:
 public:
 	HOSTENT * hst;
 	string IPv4;
-	string mpath;
+	string path;
 	vector <info> client_info = {};
 	//Заменить на false, ставить true в проверке резервной копии данных
 	bool isOutDated_Users = true;
 	bool isOutDated_Files = true;
 	//Критическая секция для работы с client_info
 	CRITICAL_SECTION cs_info;
-	CRITICAL_SECTION cs_files;
-	CRITICAL_SECTION cs_users;
+	//CRITICAL_SECTION cs_files;
+	//CRITICAL_SECTION cs_users;
 #pragma endregion
 
 #pragma region Get- и set-методы
@@ -78,19 +80,31 @@ public:
 private:
 	//DWORD WINAPI initialize(LPVOID param);
 	//DWORD WINAPI WorkWithClient(LPVOID client_socket);
-	void quit_client(int id);
+	
 
 public:
+<<<<<<< HEAD
+	bool init();
+=======
 	void init();
+>>>>>>> 7d569c9... РџРѕРґРєР»СЋС‡РµРЅРёРµ РєСЂРёРІРµРЅСЊРєРѕ, РЅРѕ СЂР°Р±РѕС‚Р°РµС‚
 	bool update_clientFiles(int id);
 	bool updateFiles_Users();
 	bool sendFiles_Users(int id);
 	int send_buff(int id);
 	int receive(int id);
+<<<<<<< HEAD
+	bool new_user(int id);
+	bool new_file(string name, string f_access, vector <string> access_users);
+	bool uploadFile(int id);
+	bool downloadFile(int id);
+=======
 	void new_user(int name);
 	void new_file(string name);
+>>>>>>> 7d569c9... РџРѕРґРєР»СЋС‡РµРЅРёРµ РєСЂРёРІРµРЅСЊРєРѕ, РЅРѕ СЂР°Р±РѕС‚Р°РµС‚
 	bool save_backup();
 	bool load_from_backup();
+	bool quit_client(int id);
 	int Exit();
 
 #pragma endregion
