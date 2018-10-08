@@ -31,7 +31,7 @@ namespace Server4 {
 		/// </summary>
 		~ServerForm()
 		{
-			server.Exit();
+			//server.Exit();
 			if (components)
 			{
 				delete components;
