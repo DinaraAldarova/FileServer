@@ -353,6 +353,7 @@ bool ServerInterLayer::updateFiles_Users()
 	isOutDated_Users = true;
 	pushLog("Списки пользователей и файлов обновлены");
 	ReleaseMutex(hMutex_Users_Files);
+	save_backup();	
 	return true;
 }
 
