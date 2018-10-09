@@ -23,6 +23,7 @@ struct info
 	SOCKET sock;
 	HANDLE mailslot;
 	vector <string> files;
+	vector <string> loading_files;
 	CRITICAL_SECTION cs_buf;
 };
 struct loading_files
@@ -100,6 +101,7 @@ public:
 	int new_loading_file(string name, string f_access, vector <string> access_users, int id);
 	bool uploadFile(int id);
 	bool downloadFile(int id);
+	bool reuploadFile(int id);
 	bool save_backup();
 	bool load_from_backup();
 	bool quit_client(int id);

@@ -221,13 +221,10 @@ DWORD WINAPI WorkWithClient(LPVOID param)
 		{
 			server->downloadFile(id);
 		}
-
-
-
-
-
-
-
+		else if (strncmp(server->client_info[id].buff, "reupload", 8) == 0)
+		{
+			server->reuploadFile(id);
+		}
 	}
 	return 0;
 }
@@ -250,6 +247,23 @@ bool ServerInterLayer::update_clientFiles(int id)
 			client_info[j].files = mas;
 		}
 	}
+
+	mas.clear();
+	for (int i = 0; i < loading.size(); i++)
+	{
+		if (loading[i].f_access == "public")
+			mas.push_back(loading[i].name);
+		else if (find(loading[i].access_users.begin(), loading[i].access_users.end(), name) != loading[i].access_users.end())
+			mas.push_back(loading[i].name);
+	}
+	for (int j = 0; j < client_info.size(); j++)
+	{
+		if (client_info[j].name == name)
+		{
+			client_info[j].loading_files = mas;
+		}
+	}
+
 	LeaveCriticalSection(&server->cs_info);
 	ReleaseMutex(hMutex_Users_Files);
 	return true;
@@ -379,6 +393,32 @@ bool ServerInterLayer::sendFiles_Users(int id)
 				strcat(client_info[id].buff, client_info[id].files[i].c_str());
 				strcat(client_info[id].buff, "|");
 				j += client_info[id].files[i].size() + 1;
+				i++;
+			}
+			else
+			{
+				end = true;
+			}
+		}
+		strcat(client_info[id].buff, "*");
+		send_buff(id);
+	}
+	strcpy(client_info[id].buff, "done");
+	send_buff(id);
+
+	i = 0;
+	while (i < client_info[id].loading_files.size())
+	{
+		bool end = false;
+		int j = 0;
+		strcpy(client_info[id].buff, "");
+		while (i < client_info[id].loading_files.size() && !end)
+		{
+			if (client_info[id].loading_files[i].size() < (size_buff - j - 1))
+			{
+				strcat(client_info[id].buff, client_info[id].loading_files[i].c_str());
+				strcat(client_info[id].buff, "|");
+				j += client_info[id].loading_files[i].size() + 1;
 				i++;
 			}
 			else
@@ -659,7 +699,7 @@ bool ServerInterLayer::uploadFile(int id)
 		{
 			client_info[id].buff[0] = '_';
 		}
-		
+
 		//Сервер « файл « Клиент
 		//получил « файл « прочитал
 		//посчитал » контроль » получил
@@ -791,9 +831,9 @@ bool ServerInterLayer::downloadFile(int id)
 		{
 			server->send_buff(id);
 		}
-		
+
 		if (!receive(id)) { pushLog("Ошибка сокета, загрузка прервана"); fclose(file); ReleaseMutex(hMutex_Users_Files); quit_client(id); return false; }
-		if (strcmp(server->client_info[id].buff,"ok")) { pushLog("Клиент ответил отрицательно, загрузка прервана"); fclose(file); strcpy(client_info[id].buff, "error"); send_buff(id); ReleaseMutex(hMutex_Users_Files); return false; }
+		if (strcmp(server->client_info[id].buff, "ok")) { pushLog("Клиент ответил отрицательно, загрузка прервана"); fclose(file); strcpy(client_info[id].buff, "error"); send_buff(id); ReleaseMutex(hMutex_Users_Files); return false; }
 
 		strcpy(server->client_info[id].buff, "next");
 		server->send_buff(id);
@@ -850,6 +890,138 @@ bool ServerInterLayer::downloadFile(int id)
 	}
 	ReleaseMutex(hMutex_Users_Files);
 	return true;
+}
+
+bool ServerInterLayer::reuploadFile(int id)
+{
+	WaitForSingleObject(hMutex_Users_Files, INFINITE);
+	int j = 9;
+	string s = "";
+	while (client_info[id].buff[j] != '|')
+	{
+		s += client_info[id].buff[j];
+		j++;
+	}
+	string name = s;
+
+	//проверка прав доступа
+	int i = 0;
+	bool found = false;
+	for (; i < loading.size() && !found; i++)
+	{
+		if (loading[i].name == name)
+			found = true;
+	}
+	i--;
+	if (!found)
+	{
+		pushLog("Ошибка! Отсутствует информация о файле " + name);
+		strcpy(client_info[id].buff, "Ошибка! Отсутствует информация о файле");
+		send_buff(id);
+		ReleaseMutex(hMutex_Users_Files);
+		return false;
+	}
+	else if (loading[i].f_access != "public" && find(loading[i].access_users.begin(), loading[i].access_users.end(),
+		client_info[id].name) == loading[i].access_users.end())
+	{
+		pushLog("Ошибка! Файл недоступен данному пользователю");
+		strcpy(client_info[id].buff, "Ошибка! Файл недоступен данному пользователю");
+		send_buff(id);
+		ReleaseMutex(hMutex_Users_Files);
+		return false;
+	}
+	int id_file = i;
+	FILE * file;
+	file = fopen((path + name).c_str(), "wb+");
+	if (file == NULL)
+	{
+		pushLog("Ошибка! Файл невозможно создать. Получение невозможно");
+		strcpy(client_info[id].buff, "error");
+		send_buff(id);
+		ReleaseMutex(hMutex_Users_Files);
+		return false;
+	}
+
+	strcpy(client_info[id].buff, "ready");
+	send_buff(id);
+
+	if (!receive(id)) { pushLog("Ошибка сокета, загрузка прервана"); fclose(file); ReleaseMutex(hMutex_Users_Files); quit_client(id); return false; }
+	long size_file = atol(client_info[id].buff);
+
+	fseek(file, 0, SEEK_END);
+	long pos = ftell(file);
+	ltoa(pos, client_info[id].buff, 10);
+	send_buff(id);
+
+	char buff_2[size_buff] = "";
+
+	for (; pos < size_file; )
+	{
+		if (!receive(id)) { pushLog("Ошибка сокета, загрузка прервана"); fclose(file); ReleaseMutex(hMutex_Users_Files); quit_client(id); return false; }
+		strcpy(buff_2, client_info[id].buff);
+		//потом заменить на вычисление контрольной суммы
+		strcpy(client_info[id].buff, "ok");
+		send_buff(id);
+
+		if (!receive(id)) { pushLog("Ошибка сокета, загрузка прервана"); fclose(file); ReleaseMutex(hMutex_Users_Files); quit_client(id); return false; }
+
+		if (client_info[id].buff[0] == '\0')
+		{
+			client_info[id].buff[0] = '_';
+		}
+
+		//Сервер « файл « Клиент
+		//получил « файл « прочитал
+		//посчитал » контроль » получил
+		//записал « подтвердил « сравнил
+		//отправил » подтвердил » сдвинул
+
+		if (!strcmp(client_info[id].buff, "next") || !strcmp(client_info[id].buff, "_next"))
+			//загружаем следующий блок
+		{
+			if (size_file - pos < size_buff)
+			{
+				fwrite(&buff_2, size_file - pos, 1, file);
+				pos += size_file - pos;
+			}
+			else
+			{
+				fwrite(&buff_2, sizeof(buff_2), 1, file);
+				pos += sizeof(buff_2);
+			}
+			strcpy(client_info[id].buff, "next");
+		}
+		else if (!strcmp(client_info[id].buff, "repeat"))
+			//повторить загрузку блока
+			strcpy(client_info[id].buff, "repeat");
+		else
+			//загружено что-то еще
+		{
+			pushLog("Клиент ответил отрицательно, загрузка прервана"); fclose(file); strcpy(client_info[id].buff, "error"); send_buff(id); ReleaseMutex(hMutex_Users_Files); return false;
+		}
+
+		send_buff(id);
+	}
+	fclose(file);
+	if (!receive(id)) { pushLog("Ошибка сокета после загрузки файла"); ReleaseMutex(hMutex_Users_Files); quit_client(id); return false; }
+	if (!strcmp(client_info[id].buff, "end"))
+	{
+		pushLog("Файл загружен");
+		strcpy(client_info[id].buff, "end");
+		send_buff(id);
+		ReleaseMutex(hMutex_Users_Files);
+
+		new_file(id_file);
+		return true;
+	}
+	else
+	{
+		pushLog("Клиент отправил ошибку после загрузки файла");
+		strcpy(client_info[id].buff, "error");
+		send_buff(id);
+		ReleaseMutex(hMutex_Users_Files);
+		return false;
+	}
 }
 
 bool ServerInterLayer::save_backup()
