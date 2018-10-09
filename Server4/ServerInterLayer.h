@@ -95,7 +95,7 @@ public:
 	bool sendFiles_Users(int id);
 	int send_buff(int id, int i = size_buff);
 	int receive(int id);
-	bool new_user(int id);
+	bool new_user(int name);
 	bool new_file(int id);
 	int new_loading_file(string name, string f_access, vector <string> access_users, int id);
 	bool uploadFile(int id);
